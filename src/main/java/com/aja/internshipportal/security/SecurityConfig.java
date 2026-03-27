@@ -33,7 +33,7 @@ public class SecurityConfig {
         "/api/packages",         // anyone can browse packages
         "/api/packages/**",
         "/api/questions/samples",// free sample questions
-        // ✅ FIXED SWAGGER PATHS
+        // ✅ FIXED SWAGGER PATHS   
         "/swagger-ui/**",
         "/swagger-ui.html",
         "/v3/api-docs/**"

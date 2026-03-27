@@ -37,7 +37,7 @@ public class JwtUtil {
 
 	// ── called on login — creates the short-lived access token ──
 	// stores email as subject, role as a custom claim
-	public String generateAccesToken(User user) {
+	public String generateAccessToken(User user) {
 		return Jwts.builder().setSubject(user.getEmail()).claim("role", user.getRole().name())
 				.claim("userId", user.getId()).setIssuedAt(new Date())
 				.setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs)).signWith(getSigningKey())

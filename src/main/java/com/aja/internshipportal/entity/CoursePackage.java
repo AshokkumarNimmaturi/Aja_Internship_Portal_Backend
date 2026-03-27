@@ -43,6 +43,9 @@ public class CoursePackage {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "technology_id")
     private Technology technology;
+    
+    @Column(columnDefinition = "TEXT")
+    private String description;
 
     // SINGLE tier prices
     @Column(nullable = false, precision = 10, scale = 2)
@@ -65,6 +68,8 @@ public class CoursePackage {
     public enum PackageType {
         SINGLE, BUNDLE
     }
+
+
 	
 	
 	

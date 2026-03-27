@@ -11,11 +11,12 @@ import lombok.Setter;
 @Getter
 @Setter
 @Builder
-public class QuestionReponse {
+public class QuestionResponse {
 
 	private Long id;
 	private String title;
 	private String content;
+	 private String technologyName; // ✅ ADD THIS
 	private Question.Status status;
 	private Question.Difficulty difficulty;
 	private String tags;
