@@ -26,15 +26,15 @@ public class DataSeeder {
         return args -> {
 
             // check if admin already exists — skip if yes
-            if (userRepository.existsByEmail("admin@aja.com")) {
+            if (userRepository.existsByEmail("m.patnala@ajacs.in")) {
                 log.info("Admin already exists — skipping seed");
                 return;
             }
 
             // create admin with hashed password
             User admin = User.builder()
-                    .fullName("Super Admin")
-                    .email("admin@aja.com")
+                    .fullName("Mallesh")
+                    .email("m.patnala@ajacs.in")
                     .password(passwordEncoder.encode("admin123"))
                     .role(User.Role.ADMIN)
                     .enabled(true)

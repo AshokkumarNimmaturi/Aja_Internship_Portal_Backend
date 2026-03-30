@@ -28,6 +28,7 @@ import com.aja.internshipportal.repository.RefreshTokenRepository;
 import com.aja.internshipportal.repository.UserRepository;
 import com.aja.internshipportal.security.JwtUtil;
 import com.aja.internshipportal.service.AuthService;
+import com.aja.internshipportal.service.EmailService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,159 +36,171 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-	private final UserRepository userRepository;
-	private final RefreshTokenRepository refreshTokenRepository;
-	private final PasswordResetTokenRepository passwordResetTokenRepository;
-	private final PasswordEncoder passwordEncoder;
-	private final JwtUtil jwtUtil;
-	private final AuthenticationManager authenticationManager;
+    private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final AuthenticationManager authenticationManager;
+    private final EmailService emailService; // ✅ ADDED
 
-	// REGISTER ---SUBSCRIBER ONLY
+    // ── REGISTER ──
+    @Override
+    @Transactional
+    public AuthResponse register(RegisterRequest request) {
 
-	@Override
-	@Transactional
-	public AuthResponse register(RegisterRequest request) {
-		// check duplicate email
-		if (userRepository.existsByEmail(request.getEmail())) {
-			throw AppException.conflict("Email already registered");
-		}
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw AppException.conflict("Email already registered");
+        }
 
-		// check duplicate phone if provided
-		if (userRepository.existsByPhone(request.getPhone())) {
-			throw AppException.conflict("Phone number already registered");
-		}
+        if (userRepository.existsByPhone(request.getPhone())) {
+            throw AppException.conflict("Phone number already registered");
+        }
 
-		// build and save user
-		User user = User.builder().fullName(request.getFullName()).email(request.getEmail())
-				.password(passwordEncoder.encode(request.getPassword())).phone(request.getPhone())
-				.role(User.Role.SUBSCRIBER).enabled(true).firstLogin(false) // subscribers don't need forced change
-				.build();
+        User user = User.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .phone(request.getPhone())
+                .role(User.Role.SUBSCRIBER)
+                .enabled(true)
+                .firstLogin(false)
+                .build();
 
-		userRepository.save(user);
-		// generate tokens and return
-		return buildAuthResponse(user);
+        userRepository.save(user);
 
-	}
+        return buildAuthResponse(user);
+    }
 
-	// - LOGIN - all roles
+    // ── LOGIN ──
+    @Override
+    @Transactional
+    public AuthResponse login(LoginRequest request) {
 
-	@Override
-	@Transactional
-	public AuthResponse login(LoginRequest request) {
-		// Spring security verifies email + password
-		// throws BadCredentialsException if wrong - caught by GlobalExceptionHandler
-		authenticationManager
-				.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getEmail(),
+                        request.getPassword()
+                )
+        );
 
-		// load user from DB
-		User user = userRepository.findByEmail(request.getEmail())
-				.orElseThrow(() -> AppException.notFound("User Not Found"));
-		// generate tokens and return
-		return buildAuthResponse(user);
-	}
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> AppException.notFound("User Not Found"));
 
-	// - FORGOT PASSWORD - sends reset email
-	@Override
-	@Transactional
-	public ApiResponse forgotPassword(ForgotPasswordRequest request) {
-		// Spring security verifies email + password
-		// throws BadCredentialsException if wrong - caught by GlobalException
+        return buildAuthResponse(user);
+    }
 
-		User user = userRepository.findByEmail(request.getEmail())
-				.orElseThrow(() -> AppException.notFound("No account founf wuth this email"));
-		// delete olf tokens for this user
-		passwordResetTokenRepository.deleteByUser(user);
+    // ── FORGOT PASSWORD ──
+    @Override
+    @Transactional
+    public ApiResponse forgotPassword(ForgotPasswordRequest request) {
 
-		// generate new UUID token
-		String token = UUID.randomUUID().toString();
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> AppException.notFound("No account found with this email"));
 
-		// save token - expires in 15 minutes
-		PasswordResetToken resetToken = PasswordResetToken.builder().user(user).token(token)
-				.expiryDate(LocalDateTime.now().plusMinutes(15)).used(false).build();
-		passwordResetTokenRepository.save(resetToken);
+        // delete old tokens
+        passwordResetTokenRepository.deleteByUser(user);
 
-		// TODO — send email with reset link
-		// emailService.sendPasswordResetEmail(user.getEmail(), token);
-		// we wire this after EmailService is built
+        // generate token
+        String token = UUID.randomUUID().toString();
 
-		return ApiResponse.success("Password reset link sent to " + user.getEmail());
-	}
+        // save token
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .user(user)
+                .token(token)
+                .expiryDate(LocalDateTime.now().plusMinutes(15))
+                .used(false)
+                .build();
 
-	@Override
-	@Transactional
-	public ApiResponse resetPassword(ResetPasswordRequest request) {
-		// validates password match
-		if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-			throw AppException.badRequest("Password do not match");
-		}
+        passwordResetTokenRepository.save(resetToken);
 
-		// find token
-		PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
-				.orElseThrow(() -> AppException.badRequest("Invalid reset token"));
+        // ✅ SEND EMAIL
+        emailService.sendPasswordResetEmail(
+                user.getEmail(),
+                user.getFullName(),
+                token
+        );
 
-		// check not expired
-		if (resetToken.isExpired()) {
-			throw AppException.badRequest("Reset token has expired. Please request a new one");
-		}
+        return ApiResponse.success("Password reset link sent to " + user.getEmail());
+    }
 
-		// check not already used
-		if (resetToken.isUsed()) {
-			throw AppException.badRequest("Reset token has already been used");
-		}
+    // ── RESET PASSWORD ──
+    @Override
+    @Transactional
+    public ApiResponse resetPassword(ResetPasswordRequest request) {
 
-		// Now Update Password
-		User user = resetToken.getUser();
-		user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-		userRepository.save(user);
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw AppException.badRequest("Passwords do not match");
+        }
 
-		// mark token as used
-		resetToken.setUsed(true);
-		passwordResetTokenRepository.save(resetToken);
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
+                .orElseThrow(() -> AppException.badRequest("Invalid reset token"));
 
-		return ApiResponse.success("Password reset successfully. Please login.");
-	}
+        if (resetToken.isExpired()) {
+            throw AppException.badRequest("Reset token has expired");
+        }
 
-	@Override
-	@Transactional
-	public ApiResponse changePassword(String email, ChangePasswordRequest request) {
-		// validate passwords match
-		if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-			throw AppException.badRequest("Password do not match");
-		}
+        if (resetToken.isUsed()) {
+            throw AppException.badRequest("Reset token already used");
+        }
 
-		User user = userRepository.findByEmail(email).orElseThrow(() -> AppException.notFound("User not found"));
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
 
-		// if NOT firstLogin - verify current password
-		if (!user.isFirstLogin()) {
-			if (request.getCurrentPassword() == null
-					|| !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-				throw AppException.badRequest("Current password is incorrect");
-			}
-		}
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+        
+     // ✅ ADD THIS
+        emailService.sendPasswordChangedEmail(
+            user.getEmail(),
+            user.getFullName()
+        );
 
-		// update password
-		user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        return ApiResponse.success("Password reset successful");
+    }
 
-		// clear firstLogin flag - internal users land here on first login
-		user.setFirstLogin(false);
-		userRepository.save(user);
-		return ApiResponse.success("Password changed successfully");
-	}
+    // ── CHANGE PASSWORD ──
+    @Override
+    @Transactional
+    public ApiResponse changePassword(String email, ChangePasswordRequest request) {
 
-	@Override
-	@Transactional
-	public AuthResponse refreshToken(RefreshTokenRequest request) {
-		// find refresh token in DB
-		RefreshToken refreshToken = refreshTokenRepository.findByToken(request.getRefreshToken())
-				.orElseThrow(() -> AppException.unauthorized("Invalid refresh token"));
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw AppException.badRequest("Passwords do not match");
+        }
 
-		// check not expired
-		if (refreshToken.isExpired()) {
-			refreshTokenRepository.delete(refreshToken);
-			throw AppException.unauthorized("Refresh token expired. Please login again");
-		}
-		
-		 // generate new access token only
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> AppException.notFound("User not found"));
+
+        if (!user.isFirstLogin()) {
+            if (request.getCurrentPassword() == null ||
+                    !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw AppException.badRequest("Current password incorrect");
+            }
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setFirstLogin(false);
+        userRepository.save(user);
+
+        return ApiResponse.success("Password changed successfully");
+    }
+    
+    
+
+    // ── REFRESH TOKEN ──
+    @Override
+    @Transactional
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(request.getRefreshToken())
+                .orElseThrow(() -> AppException.unauthorized("Invalid refresh token"));
+
+        if (refreshToken.isExpired()) {
+            refreshTokenRepository.delete(refreshToken);
+            throw AppException.unauthorized("Refresh token expired");
+        }
+
         User user = refreshToken.getUser();
         String newAccessToken = jwtUtil.generateAccessToken(user);
 
@@ -199,35 +212,40 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    // ── HELPERS ──
 
-	// ── private helpers ──
+    private AuthResponse buildAuthResponse(User user) {
 
-	// builds full AuthResponse with both tokens + user info
-	private AuthResponse buildAuthResponse(User user) {
+        String accessToken = jwtUtil.generateAccessToken(user);
+        String refreshTokenStr = jwtUtil.generateRefreshToken(user);
 
-		String accessToken = jwtUtil.generateAccessToken(user);
-		String refreshTokenStr = jwtUtil.generateRefreshToken(user);
+        RefreshToken refreshToken = refreshTokenRepository.findByUser(user)
+                .orElse(RefreshToken.builder().user(user).build());
 
-		// save or replace refresh token in DB
-		// one token per user — old one replaced on every login
-		RefreshToken refreshToken = refreshTokenRepository.findByUser(user)
-				.orElse(RefreshToken.builder().user(user).build());
+        refreshToken.setToken(refreshTokenStr);
+        refreshToken.setExpiryDate(Instant.now().plusMillis(604800000));
 
-		refreshToken.setToken(refreshTokenStr);
-		refreshToken.setExpiryDate(Instant.now().plusMillis(604800000) // 7 days
-		);
+        refreshTokenRepository.save(refreshToken);
 
-		refreshTokenRepository.save(refreshToken);
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshTokenStr)
+                .tokenType("Bearer")
+                .user(mapToUserResponse(user))
+                .build();
+    }
 
-		return AuthResponse.builder().accessToken(accessToken).refreshToken(refreshTokenStr).tokenType("Bearer")
-				.user(mapToUserResponse(user)).build();
-	}
-
-	// converts User entity to UserResponse DTO
-	private UserResponse mapToUserResponse(User user) {
-		return UserResponse.builder().id(user.getId()).fullName(user.getFullName()).email(user.getEmail())
-				.phone(user.getPhone()).role(user.getRole()).enabled(user.isEnabled()).firstLogin(user.isFirstLogin())
-				.profilePicture(user.getProfilePicture()).createdAt(user.getCreatedAt()).build();
-	}
-
+    private UserResponse mapToUserResponse(User user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .enabled(user.isEnabled())
+                .firstLogin(user.isFirstLogin())
+                .profilePicture(user.getProfilePicture())
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
 }

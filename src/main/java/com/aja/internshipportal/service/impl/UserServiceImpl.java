@@ -14,6 +14,8 @@ import com.aja.internshipportal.dto.response.UserResponse;
 import com.aja.internshipportal.entity.User;
 import com.aja.internshipportal.exception.AppException;
 import com.aja.internshipportal.repository.UserRepository;
+import com.aja.internshipportal.service.EmailService;
+import com.aja.internshipportal.service.PdfService;
 import com.aja.internshipportal.service.UserService;
 
 import lombok.RequiredArgsConstructor;
@@ -25,9 +27,13 @@ public class UserServiceImpl implements UserService {
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 
-	// TODO — wire these after their services are built
+	// remove these two commented lines
 	// private final EmailService emailService;
 	// private final PdfService pdfService;
+
+	// add these properly
+	private final EmailService emailService;
+	private final PdfService pdfService;
 
 	@Override
 	public UserResponse createuser(CreateUserRequest request) {
@@ -62,6 +68,20 @@ public class UserServiceImpl implements UserService {
 		// TODO — generate PDF with credentials and send email
 		// byte[] pdf = pdfService.generateCredentialsPdf(user, tempPassword);
 		// emailService.sendCredentialsEmail(user.getEmail(), user.getFullName(), pdf);
+		
+		// remove this
+		// TODO — generate PDF with credentials and send email
+		// byte[] pdf = pdfService.generateCredentialsPdf(user, tempPassword);
+		// emailService.sendCredentialsEmail(user.getEmail(), user.getFullName(), pdf);
+
+		// add this
+		byte[] pdf = pdfService.generateCredentialsPdf(user, tempPassword);
+		emailService.sendCredentialsEmail(
+		    user.getEmail(),
+		    user.getFullName(),
+		    tempPassword,
+		    pdf
+		);
 
 		return mapToUserResponse(user);
 	}
