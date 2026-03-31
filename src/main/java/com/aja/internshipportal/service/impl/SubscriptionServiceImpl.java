@@ -30,6 +30,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
     // ── Get my subscriptions ──
     @Override
+    @Transactional
     public List<SubscriptionResponse> getMySubscriptions(String email) {
         User user = getUserByEmail(email);
 

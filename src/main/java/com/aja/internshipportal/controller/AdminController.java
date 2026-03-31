@@ -4,20 +4,24 @@ import com.aja.internshipportal.dto.request.CreateUserRequest;
 import com.aja.internshipportal.dto.request.UpdateUserRequest;
 import com.aja.internshipportal.dto.response.ApiResponse;
 import com.aja.internshipportal.dto.response.UserResponse;
+import com.aja.internshipportal.entity.AuditLog;
+import com.aja.internshipportal.service.AuditLogService;
 import com.aja.internshipportal.service.UserService;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -28,8 +32,9 @@ import java.util.List;
 public class AdminController {
 
     private final UserService userService;
+    private final AuditLogService auditLogService; // ✅ ADDED
 
-    // POST /api/admin/users → create internal user
+    // ── CREATE USER ──
     @PostMapping("/users")
     public ResponseEntity<UserResponse> createUser(
             @Valid @RequestBody CreateUserRequest request) {
@@ -38,13 +43,13 @@ public class AdminController {
                 .body(userService.createuser(request));
     }
 
-    // GET /api/admin/users → list all users
+    // ── GET ALL USERS ──
     @GetMapping("/users")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
-    // PUT /api/admin/users/{id} → update role or status
+    // ── UPDATE USER ──
     @PutMapping("/users/{id}")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Long id,
@@ -52,12 +57,30 @@ public class AdminController {
         return ResponseEntity.ok(userService.updateUser(id, request));
     }
 
-    // DELETE /api/admin/users/{id} → deactivate user
+    // ── DEACTIVATE USER ──
     @DeleteMapping("/users/{id}")
     public ResponseEntity<ApiResponse> deactivateUser(@PathVariable Long id) {
         userService.deactivateUser(id);
         return ResponseEntity.ok(
-            ApiResponse.success("User deactivated successfully")
+                ApiResponse.success("User deactivated successfully")
+        );
+    }
+
+    // ── AUDIT LOGS ──
+    // GET /api/admin/audit-log?page=0&size=20
+    @GetMapping("/audit-log")
+    public ResponseEntity<Page<AuditLog>> getAuditLogs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by("createdAt").descending()
+        );
+
+        return ResponseEntity.ok(
+                auditLogService.getAuditLogs(pageable)
         );
     }
 }

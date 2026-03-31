@@ -20,20 +20,19 @@ import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity  // allows @PreAuthorize on controllers
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsServiceImpl userDetailsService;
 
-    // ── routes that do NOT need a token ──
+    // ── PUBLIC ROUTES ──
     private static final String[] PUBLIC_URLS = {
-        "/api/auth/**",          // login, register, forgot password
-        "/api/packages",         // anyone can browse packages
+        "/api/auth/**",
+        "/api/packages",
         "/api/packages/**",
-        "/api/questions/samples",// free sample questions
-        // ✅ FIXED SWAGGER PATHS   
+        "/api/questions/samples",
         "/swagger-ui/**",
         "/swagger-ui.html",
         "/v3/api-docs/**"
@@ -44,46 +43,49 @@ public class SecurityConfig {
             throws Exception {
 
         http
-            // disable CSRF — not needed for stateless JWT APIs
+            // 🔥 VERY IMPORTANT: ENABLE CORS
+            .cors(cors -> {})
+
+            // disable CSRF
             .csrf(AbstractHttpConfigurer::disable)
 
-            // configure route permissions
+            // authorization rules
             .authorizeHttpRequests(auth -> auth
 
-                // public routes — no token needed
+                // allow preflight requests (IMPORTANT FOR CORS)
+                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+
+                // public
                 .requestMatchers(PUBLIC_URLS).permitAll()
 
-                // admin only routes
-                .requestMatchers("/api/admin/**")
-                    .hasRole("ADMIN")
+                // admin
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                // tutor + admin can review questions
+                // tutor/admin
                 .requestMatchers("/api/questions/*/review")
                     .hasAnyRole("TUTOR", "ADMIN")
 
-                // employee + tutor + admin can submit questions
+                // employee/tutor/admin
                 .requestMatchers("/api/questions")
                     .hasAnyRole("EMPLOYEE", "TUTOR", "ADMIN")
 
-                // payment + subscription — subscribers only
-                .requestMatchers("/api/payment/**")
-                    .hasRole("SUBSCRIBER")
-                .requestMatchers("/api/subscriptions/**")
-                    .hasRole("SUBSCRIBER")
+                // subscriber
+                .requestMatchers("/api/payment/**").hasRole("SUBSCRIBER")
+                .requestMatchers("/api/subscriptions/**").hasRole("SUBSCRIBER")
 
-                // everything else needs at least a valid token
+                // all others
                 .anyRequest().authenticated()
             )
 
-            // stateless — no sessions, every request must carry token
+            // stateless
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
 
-            // plug in our custom authentication provider
+            // auth provider
             .authenticationProvider(authenticationProvider())
 
-            // run JwtAuthFilter before Spring's default login filter
+            // JWT filter
             .addFilterBefore(
                 jwtAuthFilter,
                 UsernamePasswordAuthenticationFilter.class
@@ -92,25 +94,22 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ── tells Spring how to verify passwords ──
+    // ── AUTH PROVIDER ──
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        // use our UserDetailsServiceImpl to load users
         provider.setUserDetailsService(userDetailsService);
-        // use BCrypt to verify passwords
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }
 
-    // ── BCrypt — hashes passwords before saving to DB ──
-    // never store plain text passwords
+    // ── PASSWORD ENCODER ──
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // ── AuthenticationManager — used in AuthService to verify login ──
+    // ── AUTH MANAGER ──
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration config) throws Exception {

@@ -20,6 +20,8 @@ import com.aja.internshipportal.repository.QuestionRepository;
 import com.aja.internshipportal.repository.TechnologyRepository;
 import com.aja.internshipportal.repository.UserRepository;
 import com.aja.internshipportal.service.QuestionService;
+import com.aja.internshipportal.service.AuditLogService;
+import com.aja.internshipportal.util.AuditActions;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,6 +33,7 @@ public class QuestionServiceImpl implements QuestionService {
     private final UserRepository userRepository;
     private final TechnologyRepository technologyRepository;
     private final AnswerRepository answerRepository;
+    private final AuditLogService auditLogService; // ✅ ADDED
 
     // ── Submit question ──
     @Override
@@ -55,6 +58,13 @@ public class QuestionServiceImpl implements QuestionService {
                 .build();
 
         questionRepository.save(question);
+
+        // ✅ AUDIT LOG
+        auditLogService.log(user, AuditActions.QUESTION_SUBMITTED,
+                "Question", question.getId(),
+                "Question submitted: " + question.getTitle(),
+                null
+        );
 
         return mapToQuestionResponse(question);
     }
@@ -86,12 +96,25 @@ public class QuestionServiceImpl implements QuestionService {
 
         questionRepository.save(question);
 
+        // ✅ PICK ACTION DYNAMICALLY
+        String action = request.getDecision() == Question.Status.APPROVED
+                ? AuditActions.QUESTION_APPROVED
+                : AuditActions.QUESTION_REJECTED;
+
+        // ✅ AUDIT LOG
+        auditLogService.log(reviewer, action,
+                "Question", question.getId(),
+                "Question " + request.getDecision().name().toLowerCase() +
+                        ": " + question.getTitle(),
+                null
+        );
+
         return mapToQuestionResponse(question);
     }
 
-    // ── Get questions (FIXED 🔥) ──
+    // ── Get questions ──
     @Override
-    @Transactional(readOnly = true) // ✅ IMPORTANT FIX
+    @Transactional(readOnly = true)
     public Page<QuestionResponse> getQuestions(Long technologyId,
                                                String keyword,
                                                Pageable pageable) {
@@ -132,9 +155,9 @@ public class QuestionServiceImpl implements QuestionService {
                 .map(this::mapToQuestionResponse);
     }
 
-    // ── Get single question (FIXED 🔥) ──
+    // ── Get single question ──
     @Override
-    @Transactional(readOnly = true) // ✅ IMPORTANT FIX
+    @Transactional(readOnly = true)
     public QuestionResponse getQuestionById(Long id) {
         Question question = questionRepository.findById(id)
                 .orElseThrow(() -> AppException.notFound("Question not found"));
@@ -177,43 +200,34 @@ public class QuestionServiceImpl implements QuestionService {
                 .orElseThrow(() -> AppException.notFound("User not found"));
     }
 
-    // ── Mapper (SAFE VERSION 🔥) ──
+    // ── Mapper ──
     public QuestionResponse mapToQuestionResponse(Question question) {
 
         return QuestionResponse.builder()
                 .id(question.getId())
                 .title(question.getTitle())
                 .content(question.getContent())
-
-                // ✅ NULL SAFE
                 .technologyName(
                         question.getTechnology() != null
                                 ? question.getTechnology().getName()
                                 : null
                 )
-
                 .status(question.getStatus())
                 .difficulty(question.getDifficulty())
                 .tags(question.getTags())
                 .sample(question.isSample())
-
-                // ✅ NULL SAFE
                 .submittedByName(
                         question.getSubmittedBy() != null
                                 ? question.getSubmittedBy().getFullName()
                                 : null
                 )
-
                 .reviewedByName(
                         question.getReviewedBy() != null
                                 ? question.getReviewedBy().getFullName()
                                 : null
                 )
-
                 .rejectionReason(question.getRejectionReason())
-
                 .answerCount(answerRepository.countByQuestion(question))
-
                 .createdAt(question.getCreatedAt())
                 .build();
     }

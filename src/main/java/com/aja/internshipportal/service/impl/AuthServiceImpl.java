@@ -10,25 +10,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.aja.internshipportal.dto.request.ChangePasswordRequest;
-import com.aja.internshipportal.dto.request.ForgotPasswordRequest;
-import com.aja.internshipportal.dto.request.LoginRequest;
-import com.aja.internshipportal.dto.request.RefreshTokenRequest;
-import com.aja.internshipportal.dto.request.RegisterRequest;
-import com.aja.internshipportal.dto.request.ResetPasswordRequest;
-import com.aja.internshipportal.dto.response.ApiResponse;
-import com.aja.internshipportal.dto.response.AuthResponse;
-import com.aja.internshipportal.dto.response.UserResponse;
-import com.aja.internshipportal.entity.PasswordResetToken;
-import com.aja.internshipportal.entity.RefreshToken;
-import com.aja.internshipportal.entity.User;
+import com.aja.internshipportal.dto.request.*;
+import com.aja.internshipportal.dto.response.*;
+import com.aja.internshipportal.entity.*;
 import com.aja.internshipportal.exception.AppException;
-import com.aja.internshipportal.repository.PasswordResetTokenRepository;
-import com.aja.internshipportal.repository.RefreshTokenRepository;
-import com.aja.internshipportal.repository.UserRepository;
+import com.aja.internshipportal.repository.*;
 import com.aja.internshipportal.security.JwtUtil;
-import com.aja.internshipportal.service.AuthService;
-import com.aja.internshipportal.service.EmailService;
+import com.aja.internshipportal.service.*;
+import com.aja.internshipportal.util.AuditActions;
 
 import lombok.RequiredArgsConstructor;
 
@@ -42,7 +31,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
-    private final EmailService emailService; // ✅ ADDED
+    private final EmailService emailService;
+    private final AuditLogService auditLogService;
 
     // ── REGISTER ──
     @Override
@@ -69,6 +59,13 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(user);
 
+        // ✅ AUDIT LOG
+        auditLogService.log(user, AuditActions.USER_REGISTERED,
+                "User", user.getId(),
+                "New subscriber registered: " + user.getEmail(),
+                null
+        );
+
         return buildAuthResponse(user);
     }
 
@@ -87,6 +84,13 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> AppException.notFound("User Not Found"));
 
+        // ✅ AUDIT LOG
+        auditLogService.log(user, AuditActions.USER_LOGIN,
+                "User", user.getId(),
+                "User logged in: " + user.getEmail(),
+                null
+        );
+
         return buildAuthResponse(user);
     }
 
@@ -98,13 +102,10 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> AppException.notFound("No account found with this email"));
 
-        // delete old tokens
         passwordResetTokenRepository.deleteByUser(user);
 
-        // generate token
         String token = UUID.randomUUID().toString();
 
-        // save token
         PasswordResetToken resetToken = PasswordResetToken.builder()
                 .user(user)
                 .token(token)
@@ -114,7 +115,6 @@ public class AuthServiceImpl implements AuthService {
 
         passwordResetTokenRepository.save(resetToken);
 
-        // ✅ SEND EMAIL
         emailService.sendPasswordResetEmail(
                 user.getEmail(),
                 user.getFullName(),
@@ -150,11 +150,18 @@ public class AuthServiceImpl implements AuthService {
 
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
-        
-     // ✅ ADD THIS
+
+        // ✅ AUDIT LOG
+        auditLogService.log(user, AuditActions.PASSWORD_RESET,
+                "User", user.getId(),
+                "Password reset for: " + user.getEmail(),
+                null
+        );
+
+        // ✅ EMAIL
         emailService.sendPasswordChangedEmail(
-            user.getEmail(),
-            user.getFullName()
+                user.getEmail(),
+                user.getFullName()
         );
 
         return ApiResponse.success("Password reset successful");
@@ -183,10 +190,15 @@ public class AuthServiceImpl implements AuthService {
         user.setFirstLogin(false);
         userRepository.save(user);
 
+        // ✅ AUDIT LOG
+        auditLogService.log(user, AuditActions.PASSWORD_CHANGED,
+                "User", user.getId(),
+                "Password changed for: " + user.getEmail(),
+                null
+        );
+
         return ApiResponse.success("Password changed successfully");
     }
-    
-    
 
     // ── REFRESH TOKEN ──
     @Override

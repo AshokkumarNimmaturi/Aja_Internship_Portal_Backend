@@ -17,6 +17,8 @@ import com.aja.internshipportal.repository.UserRepository;
 import com.aja.internshipportal.service.EmailService;
 import com.aja.internshipportal.service.PdfService;
 import com.aja.internshipportal.service.UserService;
+import com.aja.internshipportal.service.AuditLogService;
+import com.aja.internshipportal.util.AuditActions;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,130 +26,147 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-	private final UserRepository userRepository;
-	private final PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
+    private final PdfService pdfService;
+    private final AuditLogService auditLogService; // ✅ ADDED
 
-	// remove these two commented lines
-	// private final EmailService emailService;
-	// private final PdfService pdfService;
+    // ── CREATE USER ──
+    @Override
+    public UserResponse createuser(CreateUserRequest request) {
 
-	// add these properly
-	private final EmailService emailService;
-	private final PdfService pdfService;
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw AppException.conflict("Email already registered with our database");
+        }
 
-	@Override
-	public UserResponse createuser(CreateUserRequest request) {
-		// check duplicate email
-		if (userRepository.existsByEmail(request.getEmail())) {
-			throw AppException.conflict("Email already registered with our database");
-		}
+        if (request.getPhone() != null && userRepository.existsByPhone(request.getPhone())) {
+            throw AppException.conflict("Phone number already registered");
+        }
 
-		// check duplicate phone
-		if (request.getPhone() != null && userRepository.existsByPhone(request.getPhone())) {
-			throw AppException.conflict("Phone number already registered");
-		}
+        if (request.getRole() == User.Role.ADMIN || request.getRole() == User.Role.SUBSCRIBER) {
+            throw AppException.badRequest("Only TUTOR or EMPLOYEE accounts can be created here");
+        }
 
-		// only TUTOR or EMPLOYEE can be created by admin
-		// ADMIN cannot be created via this endpoint
+        String tempPassword = generateTempPassword();
 
-		if (request.getRole() == User.Role.ADMIN || request.getRole() == User.Role.SUBSCRIBER) {
-			throw AppException.badRequest("Only TUTOR or EMPLOYEE accounts can be created here");
-		}
+        User user = User.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(tempPassword))
+                .phone(request.getPhone())
+                .role(request.getRole())
+                .enabled(true)
+                .firstLogin(true)
+                .build();
 
-		// generate random temporary password
-		// user will be forced to change this on first login
+        userRepository.save(user);
 
-		String tempPassword = generateTempPassword();
-		User user = User.builder().fullName(request.getFullName()).email(request.getEmail())
-				.password(passwordEncoder.encode(tempPassword)).phone(request.getPhone()).role(request.getRole())
-				.enabled(true).firstLogin(true) // forces password change on first login
-				.build();
+        // ✅ AUDIT LOG
+        auditLogService.log(user, AuditActions.USER_CREATED,
+                "User", user.getId(),
+                "Internal user created: " + user.getEmail() +
+                        " role: " + user.getRole(),
+                null
+        );
 
-		userRepository.save(user);
+        // send credentials email
+        byte[] pdf = pdfService.generateCredentialsPdf(user, tempPassword);
+        emailService.sendCredentialsEmail(
+                user.getEmail(),
+                user.getFullName(),
+                tempPassword,
+                pdf
+        );
 
-		// TODO — generate PDF with credentials and send email
-		// byte[] pdf = pdfService.generateCredentialsPdf(user, tempPassword);
-		// emailService.sendCredentialsEmail(user.getEmail(), user.getFullName(), pdf);
-		
-		// remove this
-		// TODO — generate PDF with credentials and send email
-		// byte[] pdf = pdfService.generateCredentialsPdf(user, tempPassword);
-		// emailService.sendCredentialsEmail(user.getEmail(), user.getFullName(), pdf);
+        return mapToUserResponse(user);
+    }
 
-		// add this
-		byte[] pdf = pdfService.generateCredentialsPdf(user, tempPassword);
-		emailService.sendCredentialsEmail(
-		    user.getEmail(),
-		    user.getFullName(),
-		    tempPassword,
-		    pdf
-		);
+    // ── GET ALL USERS ──
+    @Override
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .map(this::mapToUserResponse)
+                .collect(Collectors.toList());
+    }
 
-		return mapToUserResponse(user);
-	}
+    // ── UPDATE USER ──
+    @Override
+    @Transactional
+    public UserResponse updateUser(Long id, UpdateUserRequest request) {
 
-	// ── Admin → list all users ──
-	@Override
-	public List<UserResponse> getAllUsers() {
-		return userRepository.findAll().stream().map(this::mapToUserResponse).collect(Collectors.toList());
-	}
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> AppException.notFound("User not found"));
 
-	// ── Admin → update role or enabled status ──
-	@Override
-	@Transactional
-	public UserResponse updateUser(Long id, UpdateUserRequest request) {
+        if (request.getFullName() != null) {
+            user.setFullName(request.getFullName());
+        }
 
-		User user = userRepository.findById(id).orElseThrow(() -> AppException.notFound("User not found"));
+        if (request.getRole() != null) {
+            user.setRole(request.getRole());
+        }
 
-		// update only fields that are provided
-		if (request.getFullName() != null) {
-			user.setFullName(request.getFullName());
-		}
+        if (request.getEnabled() != null) {
+            user.setEnabled(request.getEnabled());
+        }
 
-		if (request.getRole() != null) {
-			user.setRole(request.getRole());
-		}
+        userRepository.save(user);
 
-		if (request.getEnabled() != null) {
-			user.setEnabled(request.getEnabled());
-		}
+        // ✅ AUDIT LOG
+        auditLogService.log(user, AuditActions.USER_UPDATED,
+                "User", user.getId(),
+                "User updated: " + user.getEmail(),
+                null
+        );
 
-		userRepository.save(user);
-		return mapToUserResponse(user);
+        return mapToUserResponse(user);
+    }
 
-	}
+    // ── DEACTIVATE USER ──
+    @Override
+    @Transactional
+    public void deactivateUser(Long id) {
 
-	// ── Admin → deactivate user (soft delete) ──
-	// we never delete users from DB — just disable them
-	@Override
-	@Transactional
-	public void deactivateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> AppException.notFound("User not found"));
 
-		User user = userRepository.findById(id).orElseThrow(() -> AppException.notFound("User not found"));
+        user.setEnabled(false);
+        userRepository.save(user);
 
-		user.setEnabled(false);
-		userRepository.save(user);
-	}
+        // ✅ AUDIT LOG
+        auditLogService.log(user, AuditActions.USER_DEACTIVATED,
+                "User", user.getId(),
+                "User deactivated: " + user.getEmail(),
+                null
+        );
+    }
 
-	// ── Any user → get own profile ──
-	@Override
-	public UserResponse getMyProfile(String email) {
-		User user = userRepository.findByEmail(email).orElseThrow(() -> AppException.notFound("User not found"));
-		return mapToUserResponse(user);
-	}
+    // ── GET PROFILE ──
+    @Override
+    public UserResponse getMyProfile(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> AppException.notFound("User not found"));
+        return mapToUserResponse(user);
+    }
 
-	// helpers
+    // ── HELPERS ──
 
-	// generates a random 8 - character temp password
-	// e.g "jfhgkjgHJKi43"
-	private String generateTempPassword() {
-		return UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-	}
+    private String generateTempPassword() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+    }
 
-	public UserResponse mapToUserResponse(User user) {
-		return UserResponse.builder().id(user.getId()).fullName(user.getFullName()).email(user.getEmail())
-				.phone(user.getPhone()).role(user.getRole()).enabled(user.isEnabled()).firstLogin(user.isFirstLogin())
-				.profilePicture(user.getProfilePicture()).createdAt(user.getCreatedAt()).build();
-	}
-
+    public UserResponse mapToUserResponse(User user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .enabled(user.isEnabled())
+                .firstLogin(user.isFirstLogin())
+                .profilePicture(user.getProfilePicture())
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
 }
