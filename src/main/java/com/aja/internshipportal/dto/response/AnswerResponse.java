@@ -12,6 +12,10 @@ public class AnswerResponse {
     private Long id;
     private String content;
     private String authorName;
+    
+    // ✅ ADDED: This will allow the "My Answers" page to show the question name
+    private String questionTitle;
+    
     private int upvoteCount;
 
     // Did the currently logged-in user upvote this answer

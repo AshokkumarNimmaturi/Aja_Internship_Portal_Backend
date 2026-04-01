@@ -9,9 +9,12 @@ import lombok.Setter;
 @Setter
 public class ReviewQuestionRequest {
 
-	//APPROVED or REJECTED only
+	// APPROVED or REJECTED only
 	private Question.Status decision;
 	
-	//Required only when decision = REJECTED
+	// Required only when decision = REJECTED
 	private String rejectionReason;
+
+    // ✅ ADDED: Allows Tutors/Admins to correct the answer during review
+    private String correctedAnswer; 
 }

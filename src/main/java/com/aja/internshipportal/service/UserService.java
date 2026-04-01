@@ -23,4 +23,7 @@ public interface UserService {
 	// Any logged-in user → get own profile
 	UserResponse getMyProfile(String email);
 
+	// ✅ ADDED: Allow any logged-in user to update their own profile tech interests
+	UserResponse updateMyProfile(String email, UpdateUserRequest request);
+
 }

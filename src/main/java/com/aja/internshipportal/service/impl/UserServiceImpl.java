@@ -14,10 +14,7 @@ import com.aja.internshipportal.dto.response.UserResponse;
 import com.aja.internshipportal.entity.User;
 import com.aja.internshipportal.exception.AppException;
 import com.aja.internshipportal.repository.UserRepository;
-import com.aja.internshipportal.service.EmailService;
-import com.aja.internshipportal.service.PdfService;
-import com.aja.internshipportal.service.UserService;
-import com.aja.internshipportal.service.AuditLogService;
+import com.aja.internshipportal.service.*;
 import com.aja.internshipportal.util.AuditActions;
 
 import lombok.RequiredArgsConstructor;
@@ -30,7 +27,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final PdfService pdfService;
-    private final AuditLogService auditLogService; // ✅ ADDED
+    private final AuditLogService auditLogService;
 
     // ── CREATE USER ──
     @Override
@@ -83,7 +80,9 @@ public class UserServiceImpl implements UserService {
     }
 
     // ── GET ALL USERS ──
+    // ✅ ADDED @Transactional: This allows interests to load for the admin view
     @Override
+    @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll()
                 .stream()
@@ -91,7 +90,7 @@ public class UserServiceImpl implements UserService {
                 .collect(Collectors.toList());
     }
 
-    // ── UPDATE USER ──
+    // ── UPDATE USER (ADMIN) ──
     @Override
     @Transactional
     public UserResponse updateUser(Long id, UpdateUserRequest request) {
@@ -111,12 +110,45 @@ public class UserServiceImpl implements UserService {
             user.setEnabled(request.getEnabled());
         }
 
+        // ✅ Allow admin to update interests
+        if (request.getInterests() != null) {
+            user.setInterests(request.getInterests());
+        }
+
         userRepository.save(user);
 
         // ✅ AUDIT LOG
         auditLogService.log(user, AuditActions.USER_UPDATED,
                 "User", user.getId(),
-                "User updated: " + user.getEmail(),
+                "User updated by admin: " + user.getEmail(),
+                null
+        );
+
+        return mapToUserResponse(user);
+    }
+
+    // ── UPDATE MY PROFILE ──
+    @Override
+    @Transactional
+    public UserResponse updateMyProfile(String email, UpdateUserRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> AppException.notFound("User not found"));
+
+        if (request.getFullName() != null) {
+            user.setFullName(request.getFullName());
+        }
+
+        // ✅ Save technology interests
+        if (request.getInterests() != null) {
+            user.setInterests(request.getInterests());
+        }
+
+        userRepository.save(user);
+
+        // ✅ AUDIT LOG
+        auditLogService.log(user, AuditActions.USER_UPDATED,
+                "User", user.getId(),
+                "Self-profile updated: " + user.getEmail(),
                 null
         );
 
@@ -143,7 +175,9 @@ public class UserServiceImpl implements UserService {
     }
 
     // ── GET PROFILE ──
+    // ✅ ADDED @Transactional: This allows interests to load for the profile view
     @Override
+    @Transactional(readOnly = true)
     public UserResponse getMyProfile(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> AppException.notFound("User not found"));
@@ -166,6 +200,7 @@ public class UserServiceImpl implements UserService {
                 .enabled(user.isEnabled())
                 .firstLogin(user.isFirstLogin())
                 .profilePicture(user.getProfilePicture())
+                .interests(user.getInterests()) // ✅ Send interests back to UI
                 .createdAt(user.getCreatedAt())
                 .build();
     }

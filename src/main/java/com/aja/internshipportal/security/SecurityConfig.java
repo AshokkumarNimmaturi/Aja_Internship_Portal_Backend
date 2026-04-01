@@ -28,8 +28,13 @@ public class SecurityConfig {
     private final UserDetailsServiceImpl userDetailsService;
 
     // ── PUBLIC ROUTES ──
+    // We explicitly list these to ensure /api/auth/me, /api/auth/profile, and /api/auth/change-password are PROTECTED
     private static final String[] PUBLIC_URLS = {
-        "/api/auth/**",
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/forgot-password",
+        "/api/auth/reset-password",
+        "/api/auth/refresh",
         "/api/packages",
         "/api/packages/**",
         "/api/questions/samples",
@@ -38,37 +43,34 @@ public class SecurityConfig {
         "/swagger-ui.html",
         "/v3/api-docs/**"
     };
- // 2. Update your securityFilterChain method:
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .cors(Customizer.withDefaults()) // ✅ REQUIRED for your CorsConfig bean to work
+            .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(PUBLIC_URLS).permitAll()
                 
-                // ✅ SWITCH TO hasRole! (It automatically looks for ROLE_ADMIN)
+                // Specific role protection mapping
                 .requestMatchers("/api/admin/**").hasRole("ADMIN") 
                 .requestMatchers("/api/questions/*/review").hasAnyRole("TUTOR", "ADMIN")
-                .requestMatchers("/api/questions").hasAnyRole("EMPLOYEE", "TUTOR", "ADMIN")
+                .requestMatchers("/api/questions").hasAnyRole("EMPLOYEE", "TUTOR", "ADMIN", "SUBSCRIBER")
                 
-                // Use hasRole for these too
                 .requestMatchers("/api/payment/**").hasRole("SUBSCRIBER")
                 .requestMatchers("/api/subscriptions/**").hasRole("SUBSCRIBER")
                 
+                // Everything else (including profile and password) requires a token
                 .anyRequest().authenticated()
             )
 
-            // stateless session
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
 
-            // authentication provider
             .authenticationProvider(authenticationProvider())
 
-            // JWT filter
             .addFilterBefore(
                 jwtAuthFilter,
                 UsernamePasswordAuthenticationFilter.class
@@ -77,7 +79,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ── AUTH PROVIDER ──
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
@@ -86,13 +87,11 @@ public class SecurityConfig {
         return provider;
     }
 
-    // ── PASSWORD ENCODER ──
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // ── AUTH MANAGER ──
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration config) throws Exception {

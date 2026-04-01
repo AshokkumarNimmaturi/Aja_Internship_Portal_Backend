@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -45,6 +46,12 @@ public class User {
 
     @Column(length = 500)
     private String profilePicture;
+
+    // ✅ ADDED: Technology interests for profiling
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_interests", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "interest")
+    private List<String> interests;
 
     @CreationTimestamp
     @Column(updatable = false)
