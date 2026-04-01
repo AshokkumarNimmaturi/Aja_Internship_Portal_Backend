@@ -1,6 +1,7 @@
 package com.aja.internshipportal.controller;
 
 import com.aja.internshipportal.dto.request.QuestionRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.aja.internshipportal.dto.request.ReviewQuestionRequest;
 import com.aja.internshipportal.dto.response.QuestionResponse;
 import com.aja.internshipportal.service.QuestionService;
@@ -75,6 +76,21 @@ public class QuestionController {
     public ResponseEntity<QuestionResponse> getQuestionById(
             @PathVariable Long id) {
         return ResponseEntity.ok(questionService.getQuestionById(id));
+    }
+ // GET /api/questions/pending — review queue
+    @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('TUTOR','ADMIN')")
+    public ResponseEntity<Page<QuestionResponse>> getPendingQuestions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        Pageable pageable = PageRequest.of(
+                page, size, Sort.by("createdAt").descending()
+        );
+
+        return ResponseEntity.ok(
+                questionService.getPendingQuestions(pageable)
+        );
     }
 
     // POST /api/questions — submit question

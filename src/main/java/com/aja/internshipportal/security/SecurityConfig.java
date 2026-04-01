@@ -15,7 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
+import org.springframework.security.config.Customizer;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -33,56 +33,39 @@ public class SecurityConfig {
         "/api/packages",
         "/api/packages/**",
         "/api/questions/samples",
+        "/api/technologies",
         "/swagger-ui/**",
         "/swagger-ui.html",
         "/v3/api-docs/**"
     };
-
+ // 2. Update your securityFilterChain method:
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http)
-            throws Exception {
-
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 🔥 VERY IMPORTANT: ENABLE CORS
-            .cors(cors -> {})
-
-            // disable CSRF
+            .cors(Customizer.withDefaults()) // ✅ REQUIRED for your CorsConfig bean to work
             .csrf(AbstractHttpConfigurer::disable)
-
-            // authorization rules
             .authorizeHttpRequests(auth -> auth
-
-                // allow preflight requests (IMPORTANT FOR CORS)
                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-
-                // public
                 .requestMatchers(PUBLIC_URLS).permitAll()
-
-                // admin
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
-                // tutor/admin
-                .requestMatchers("/api/questions/*/review")
-                    .hasAnyRole("TUTOR", "ADMIN")
-
-                // employee/tutor/admin
-                .requestMatchers("/api/questions")
-                    .hasAnyRole("EMPLOYEE", "TUTOR", "ADMIN")
-
-                // subscriber
+                
+                // ✅ SWITCH TO hasRole! (It automatically looks for ROLE_ADMIN)
+                .requestMatchers("/api/admin/**").hasRole("ADMIN") 
+                .requestMatchers("/api/questions/*/review").hasAnyRole("TUTOR", "ADMIN")
+                .requestMatchers("/api/questions").hasAnyRole("EMPLOYEE", "TUTOR", "ADMIN")
+                
+                // Use hasRole for these too
                 .requestMatchers("/api/payment/**").hasRole("SUBSCRIBER")
                 .requestMatchers("/api/subscriptions/**").hasRole("SUBSCRIBER")
-
-                // all others
+                
                 .anyRequest().authenticated()
             )
 
-            // stateless
+            // stateless session
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
 
-            // auth provider
+            // authentication provider
             .authenticationProvider(authenticationProvider())
 
             // JWT filter

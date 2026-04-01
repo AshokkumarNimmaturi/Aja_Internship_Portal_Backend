@@ -32,4 +32,6 @@ public interface QuestionService {
     
     // EMPLOYEE — my submitted questions
     List<QuestionResponse> getMyQuestions(String email);
+    
+    Page<QuestionResponse> getPendingQuestions(Pageable pageable);
 }

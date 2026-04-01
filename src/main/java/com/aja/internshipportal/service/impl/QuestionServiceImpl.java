@@ -42,10 +42,13 @@ public class QuestionServiceImpl implements QuestionService {
 
         User user = getUserByEmail(email);
 
-        Technology technology = technologyRepository
-                .findById(request.getTechnologyId())
-                .orElseThrow(() -> AppException.notFound("Technology not found"));
 
+     // new — uses helper that checks both camelCase and snake_case
+     Technology technology = technologyRepository
+             .findById(request.getResolvedTechnologyId())
+             .orElseThrow(() ->
+                 AppException.notFound("Technology not found")
+             );
         Question question = Question.builder()
                 .title(request.getTitle())
                 .content(request.getContent())
@@ -192,6 +195,15 @@ public class QuestionServiceImpl implements QuestionService {
                 .stream()
                 .map(this::mapToQuestionResponse)
                 .collect(Collectors.toList());
+    }
+ // ── Pending questions (Admin/Tutor review queue) ──
+    @Override
+    @Transactional(readOnly = true)
+    public Page<QuestionResponse> getPendingQuestions(Pageable pageable) {
+
+        return questionRepository
+                .findByStatus(Question.Status.PENDING, pageable)
+                .map(this::mapToQuestionResponse);
     }
 
     // ── Helper ──
