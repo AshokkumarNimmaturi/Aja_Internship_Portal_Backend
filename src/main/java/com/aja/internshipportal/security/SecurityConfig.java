@@ -50,19 +50,22 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(PUBLIC_URLS).permitAll()
-                
-                // Specific role protection mapping
-                .requestMatchers("/api/admin/**").hasRole("ADMIN") 
-                .requestMatchers("/api/questions/*/review").hasAnyRole("TUTOR", "ADMIN")
-                .requestMatchers("/api/questions").hasAnyRole("EMPLOYEE", "TUTOR", "ADMIN", "SUBSCRIBER")
-                
-                .requestMatchers("/api/payment/**").hasRole("SUBSCRIBER")
-                .requestMatchers("/api/subscriptions/**").hasRole("SUBSCRIBER")
-                
-                // Everything else (including profile and password) requires a token
-                .anyRequest().authenticated()
+                    .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                    .requestMatchers(PUBLIC_URLS).permitAll()
+                    
+                    // Specific role protection mapping
+                    .requestMatchers("/api/admin/**").hasRole("ADMIN") 
+                    .requestMatchers("/api/support/**").hasRole("ADMIN") // ✅ Added support permit
+                    .requestMatchers("/api/questions/*/review").hasAnyRole("TUTOR", "ADMIN")
+                    .requestMatchers("/api/questions").hasAnyRole("EMPLOYEE", "TUTOR", "ADMIN", "SUBSCRIBER")
+                    
+                    .requestMatchers("/api/payment/**").hasRole("SUBSCRIBER")
+                    .requestMatchers("/api/subscriptions/**").hasRole("SUBSCRIBER")
+                    
+                    // Everything else (including profile and password) requires a token
+                    .anyRequest().authenticated()
+               
+
             )
 
             .sessionManagement(session -> session

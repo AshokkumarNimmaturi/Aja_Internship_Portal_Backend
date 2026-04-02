@@ -154,6 +154,12 @@ public class AdminController {
                 ApiResponse.success("User deactivated successfully")
         );
     }
+    // ✅ ADD THIS ENDPOINT
+    @PutMapping("/users/{id}/activate")
+    public ResponseEntity<ApiResponse> activateUser(@PathVariable Long id) {
+        userService.activateUser(id);
+        return ResponseEntity.ok(new ApiResponse(true, "User enabled successfully"));
+    }
 
     // ── AUDIT LOGS (DTO FIX) ──
     @Transactional

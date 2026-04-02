@@ -26,4 +26,6 @@ public interface UserService {
 	// ✅ ADDED: Allow any logged-in user to update their own profile tech interests
 	UserResponse updateMyProfile(String email, UpdateUserRequest request);
 
+	  // Admin → activate user (re-enable access)
+    void activateUser(Long id); // ✅ ADD THIS
 }

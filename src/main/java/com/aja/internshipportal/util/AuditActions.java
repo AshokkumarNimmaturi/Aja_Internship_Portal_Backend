@@ -1,8 +1,7 @@
+// PATH: src/main/java/com/aja/internshipportal/util/AuditActions.java
+
 package com.aja.internshipportal.util;
 
-// Constants for all audit log action names
-// use these everywhere instead of raw strings
-// prevents typos like "USER_CREATE" vs "USER_CREATED"
 public class AuditActions {
 
     private AuditActions() {}
@@ -12,6 +11,7 @@ public class AuditActions {
     public static final String USER_CREATED        = "USER_CREATED";
     public static final String USER_UPDATED        = "USER_UPDATED";
     public static final String USER_DEACTIVATED    = "USER_DEACTIVATED";
+    public static final String USER_ACTIVATED    = "USER_ACTIVATED"; // ✅ ADD THIS
     public static final String USER_LOGIN          = "USER_LOGIN";
     public static final String PASSWORD_CHANGED    = "PASSWORD_CHANGED";
     public static final String PASSWORD_RESET      = "PASSWORD_RESET";
@@ -21,6 +21,7 @@ public class AuditActions {
     public static final String QUESTION_SUBMITTED  = "QUESTION_SUBMITTED";
     public static final String QUESTION_APPROVED   = "QUESTION_APPROVED";
     public static final String QUESTION_REJECTED   = "QUESTION_REJECTED";
+    public static final String QUESTION_REVIEWED   = "QUESTION_REVIEWED"; // ✅ ADDED
 
     // Answer actions
     public static final String ANSWER_ADDED        = "ANSWER_ADDED";

@@ -1,3 +1,5 @@
+// PATH: src/main/java/com/aja/internshipportal/service/impl/PaymentServiceImpl.java
+
 package com.aja.internshipportal.service.impl;
 
 import com.aja.internshipportal.dto.request.PaymentOrderRequest;
@@ -12,9 +14,7 @@ import com.aja.internshipportal.exception.AppException;
 import com.aja.internshipportal.repository.PackageRepository;
 import com.aja.internshipportal.repository.PaymentRepository;
 import com.aja.internshipportal.repository.UserRepository;
-import com.aja.internshipportal.service.PaymentService;
-import com.aja.internshipportal.service.SubscriptionService;
-import com.aja.internshipportal.service.AuditLogService;
+import com.aja.internshipportal.service.*;
 import com.aja.internshipportal.util.AuditActions;
 import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
@@ -45,7 +45,9 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final PackageRepository packageRepository;
     private final SubscriptionService subscriptionService;
-    private final AuditLogService auditLogService; // ✅ ADDED
+    private final AuditLogService auditLogService;
+    private final InvoiceService invoiceService; // ✅ ADDED
+    private final EmailService emailService;     // ✅ ADDED
 
     @Value("${razorpay.key.id}")
     private String razorpayKeyId;
@@ -164,6 +166,21 @@ public class PaymentServiceImpl implements PaymentService {
                 null
         );
 
+        // ✅ INTEGRATION: Automated PDF Generation & Email Delivery with Details
+        try {
+            byte[] invoicePdf = invoiceService.generateInvoicePdf(payment);
+            emailService.sendInvoiceEmail(
+                payment.getUser().getEmail(), 
+                payment.getUser().getFullName(), 
+                invoicePdf, 
+                payment.getRazorpayOrderId(),
+                payment.getAPackage() != null ? payment.getAPackage().getName() : "Premium Package",
+                payment.getTier().name()
+            );
+        } catch (Exception e) {
+            log.error("Failed to generate/send invoice", e);
+        }
+
         subscriptionService.createSubscription(
                 payment,
                 payment.getAPackage(),
@@ -174,7 +191,7 @@ public class PaymentServiceImpl implements PaymentService {
                 email, request.getRazorpayOrderId());
 
         return ApiResponse.success(
-                "Payment successful. Your subscription is now active."
+                "Payment successful. Your subscription is now active and invoice has been emailed."
         );
     }
 

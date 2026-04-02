@@ -173,6 +173,22 @@ public class UserServiceImpl implements UserService {
                 null
         );
     }
+    
+    // ── ACTIVATE USER ──
+    @Override
+    @Transactional
+    public void activateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> AppException.notFound("User not found"));
+        user.setEnabled(true);
+        userRepository.save(user);
+        // ✅ AUDIT LOG
+        auditLogService.log(user, AuditActions.USER_ACTIVATED,
+                "User", user.getId(),
+                "User access re-enabled: " + user.getEmail(),
+                null
+        );
+    }
 
     // ── GET PROFILE ──
     // ✅ ADDED @Transactional: This allows interests to load for the profile view

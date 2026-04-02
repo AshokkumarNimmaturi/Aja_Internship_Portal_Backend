@@ -1,3 +1,5 @@
+// PATH: src/main/java/com/aja/internshipportal/service/impl/SubscriptionServiceImpl.java
+
 package com.aja.internshipportal.service.impl;
 
 import com.aja.internshipportal.dto.response.SubscriptionResponse;
@@ -10,23 +12,28 @@ import com.aja.internshipportal.exception.AppException;
 import com.aja.internshipportal.repository.PackageRepository;
 import com.aja.internshipportal.repository.SubscriptionRepository;
 import com.aja.internshipportal.repository.UserRepository;
+import com.aja.internshipportal.service.EmailService; // ✅ ADDED
 import com.aja.internshipportal.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SubscriptionServiceImpl implements SubscriptionService {
 
     private final SubscriptionRepository subscriptionRepository;
     private final UserRepository userRepository;
     private final PackageRepository packageRepository;
+    private final EmailService emailService; // ✅ ADDED
 
     // ── Get my subscriptions ──
     @Override
@@ -41,7 +48,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     }
 
     // ── Create subscription after payment verified ──
-    // called internally by PaymentService — not exposed as API directly
     @Override
     @Transactional
     public void createSubscription(Payment payment,
@@ -69,10 +75,23 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 .build();
 
         subscriptionRepository.save(subscription);
+
+        // ✅ INTEGRATION: Automated Subscription Activation Email
+        try {
+            emailService.sendSubscriptionConfirmationEmail(
+                    payment.getUser().getEmail(),
+                    payment.getUser().getFullName(),
+                    coursePackage != null ? coursePackage.getName() : "Premium Package",
+                    tier.name(),
+                    endDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))
+            );
+            log.info("Subscription confirmation email sent to: {}", payment.getUser().getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send subscription confirmation email for user: {}", payment.getUser().getEmail(), e);
+        }
     }
 
     // ── Check active subscription ──
-    // returns true if user has valid unexpired subscription
     @Override
     public boolean hasActiveSubscription(String email, Long packageId) {
 
@@ -91,13 +110,12 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         if (hasSpecific) return true;
 
         // check if user has bundle subscription
-        // bundle gives access to all packages
         return subscriptionRepository
                 .findAllActiveSubscriptions(user, LocalDate.now())
                 .stream()
                 .anyMatch(sub ->
-                    sub.getAPackage().getPackageType() ==
-                    CoursePackage.PackageType.BUNDLE
+                    sub.getAPackage() != null && 
+                    sub.getAPackage().getPackageType() == CoursePackage.PackageType.BUNDLE
                 );
     }
 
@@ -124,7 +142,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
         return SubscriptionResponse.builder()
                 .id(subscription.getId())
-                .packageName(subscription.getAPackage().getName())
+                .packageName(subscription.getAPackage() != null ? subscription.getAPackage().getName() : "General Package")
                 .tier(subscription.getTier())
                 .startDate(subscription.getStartDate())
                 .endDate(subscription.getEndDate())
