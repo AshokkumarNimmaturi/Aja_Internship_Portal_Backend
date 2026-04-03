@@ -9,8 +9,8 @@ import com.aja.internshipportal.dto.response.QuestionResponse;
 
 public interface QuestionService {
 
-	QuestionResponse submitQuestion(String email, QuestionRequest request);
-	
+    QuestionResponse submitQuestion(String email, QuestionRequest request);
+    
     QuestionResponse reviewQuestion(Long id, String email, ReviewQuestionRequest request);
     
     // ✅ ADDED: Update an existing question
@@ -25,4 +25,10 @@ public interface QuestionService {
     List<QuestionResponse> getMyQuestions(String email);
     
     Page<QuestionResponse> getPendingQuestions(Pageable pageable);
+
+    // ✅ NEW: Record a question visit for "Recently Viewed" tracking
+    void recordVisit(Long questionId, String email);
+
+    // ✅ NEW: Fetch the 5 most recently visited questions for the dashboard
+    List<QuestionResponse> getRecentQuestions(String email);
 }

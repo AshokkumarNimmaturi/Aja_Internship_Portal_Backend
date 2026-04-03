@@ -1,7 +1,6 @@
-// PATH: src/main/java/com/aja/internshipportal/service/impl/QuestionServiceImpl.java
-
 package com.aja.internshipportal.service.impl;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
@@ -29,6 +28,7 @@ public class QuestionServiceImpl implements QuestionService {
     private final UserRepository userRepository;
     private final TechnologyRepository technologyRepository;
     private final AnswerRepository answerRepository;
+    private final QuestionVisitRepository questionVisitRepository; // ✅ To be created next
     private final AuditLogService auditLogService;
 
     @Override
@@ -42,7 +42,7 @@ public class QuestionServiceImpl implements QuestionService {
         Question question = Question.builder()
                 .title(request.getTitle())
                 .content(request.getContent())
-                .clientName(request.getClientName()) // ✅ Client tracking
+                .clientName(request.getClientName())
                 .technology(technology)
                 .submittedBy(user)
                 .difficulty(request.getDifficulty())
@@ -83,7 +83,7 @@ public class QuestionServiceImpl implements QuestionService {
                 if (request.getCorrectedAnswer() != null && !request.getCorrectedAnswer().isBlank()) {
                     answer.setContent(request.getCorrectedAnswer());
                 }
-                answer.setAccepted(true);
+                answer.setAccepted(true); // ✅ This marks it as the "Official Master Answer"
                 answerRepository.save(answer);
             }
         }
@@ -93,11 +93,40 @@ public class QuestionServiceImpl implements QuestionService {
         question.setRejectionReason(request.getRejectionReason());
         questionRepository.save(question);
 
-        // ✅ SYNCED: Now matches AuditActions.QUESTION_REVIEWED
         auditLogService.log(reviewer, AuditActions.QUESTION_REVIEWED, "Question", question.getId(),
                 "Decision for #" + id + ": " + request.getDecision(), null);
 
         return mapToQuestionResponse(question);
+    }
+
+    // ✅ NEW: Implementation to track user visits for "Recently Viewed"
+    @Override
+    @Transactional
+    public void recordVisit(Long questionId, String email) {
+        User user = getUserByEmail(email);
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> AppException.notFound("Question not found"));
+
+        // Check if visit record exists, otherwise create new
+        QuestionVisit visit = questionVisitRepository.findByUserAndQuestion(user, question)
+                .orElse(QuestionVisit.builder()
+                        .user(user)
+                        .question(question)
+                        .build());
+        
+        visit.setVisitedAt(LocalDateTime.now());
+        questionVisitRepository.save(visit);
+    }
+
+    // ✅ NEW: Implementation to fetch the dashboard recent list
+    @Override
+    @Transactional(readOnly = true)
+    public List<QuestionResponse> getRecentQuestions(String email) {
+        User user = getUserByEmail(email);
+        return questionVisitRepository.findTop5ByUserOrderByVisitedAtDesc(user)
+                .stream()
+                .map(visit -> mapToQuestionResponse(visit.getQuestion()))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -117,13 +146,25 @@ public class QuestionServiceImpl implements QuestionService {
     }
 
     public QuestionResponse mapToQuestionResponse(Question question) {
+        String officialAnswer = null;
         String initialAnswer = null;
+        
         try {
             List<Answer> answers = answerRepository.findByQuestionOrderByUpvoteCountDesc(question);
-            if (!answers.isEmpty()) initialAnswer = answers.get(0).getContent();
+            
+            // 1. Find the Accepted (Official) Answer
+            officialAnswer = answers.stream()
+                    .filter(Answer::isAccepted)
+                    .map(Answer::getContent)
+                    .findFirst()
+                    .orElse(null);
+
+            // 2. Performance: Fallback to top answer if nothing is explicitly accepted yet
+            if (answers.size() > 0) {
+                initialAnswer = answers.get(0).getContent();
+            }
         } catch (Exception e) {}
 
-        // ✅ PRIVACY SHIELD: Protected Intel Layer
         String displayClient = question.getClientName();
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null) {
@@ -138,6 +179,7 @@ public class QuestionServiceImpl implements QuestionService {
                 .content(question.getContent())
                 .clientName(displayClient) 
                 .initialAnswer(initialAnswer)
+                .officialAnswer(officialAnswer) // ✅ Mapped to the new DTO field
                 .technologyName(question.getTechnology() != null ? question.getTechnology().getName() : null)
                 .status(question.getStatus())
                 .difficulty(question.getDifficulty())
@@ -148,7 +190,6 @@ public class QuestionServiceImpl implements QuestionService {
                 .build();
     }
     
-    // --- Legacy Support ---
     @Override @Transactional(readOnly = true)
     public List<QuestionResponse> getSampleQuestions(Long tid) { return questionRepository.findByTechnologyAndSampleTrue(technologyRepository.findById(tid).get()).stream().map(this::mapToQuestionResponse).collect(Collectors.toList()); }
     

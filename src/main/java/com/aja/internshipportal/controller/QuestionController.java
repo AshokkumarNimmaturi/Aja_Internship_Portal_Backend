@@ -26,8 +26,6 @@ public class QuestionController {
 
     private final QuestionService questionService;
 
-    // ... (getQuestions, getSamples, getMyQuestions, getQuestionById, getPendingQuestions, submitQuestion remain the same) ...
-
     @GetMapping
     public ResponseEntity<Page<QuestionResponse>> getQuestions(
             @RequestParam(required = false) Long technologyId,
@@ -49,9 +47,26 @@ public class QuestionController {
         return ResponseEntity.ok(questionService.getMyQuestions(userDetails.getUsername()));
     }
 
+    // ✅ NEW: GET /api/questions/recent — Fetch 5 most recently visited questions for dashboard
+    @GetMapping("/recent")
+    @PreAuthorize("hasRole('SUBSCRIBER')")
+    public ResponseEntity<List<QuestionResponse>> getRecentQuestions(@AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(questionService.getRecentQuestions(userDetails.getUsername()));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<QuestionResponse> getQuestionById(@PathVariable Long id) {
         return ResponseEntity.ok(questionService.getQuestionById(id));
+    }
+
+    // ✅ NEW: POST /api/questions/{id}/visit — Record a study visit
+    @PostMapping("/{id}/visit")
+    @PreAuthorize("hasRole('SUBSCRIBER')")
+    public ResponseEntity<Void> recordVisit(
+            @PathVariable Long id, 
+            @AuthenticationPrincipal UserDetails userDetails) {
+        questionService.recordVisit(id, userDetails.getUsername());
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/pending")
@@ -81,7 +96,6 @@ public class QuestionController {
         return ResponseEntity.ok(questionService.reviewQuestion(id, userDetails.getUsername(), request));
     }
 
-    // ✅ ADDED: PUT /api/questions/{id} — Update existing question (Author/Tutor/Admin)
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('EMPLOYEE','TUTOR','ADMIN')")
     public ResponseEntity<QuestionResponse> updateQuestion(
