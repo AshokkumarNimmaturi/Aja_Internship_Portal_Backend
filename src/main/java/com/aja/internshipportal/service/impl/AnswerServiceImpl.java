@@ -1,3 +1,6 @@
+// PATH: src/main/java/com/aja/internshipportal/service/impl/AnswerServiceImpl.java
+// ELITE SYNC: Removed status restrictions. Internal contributions are now enabled at all stages.
+
 package com.aja.internshipportal.service.impl;
 
 import java.util.List;
@@ -27,12 +30,9 @@ public class AnswerServiceImpl implements AnswerService {
     private final QuestionRepository questionRepository;
     private final UserRepository userRepository;
 
-    // ── Get all answers for a question ──
     @Override
     @Transactional(readOnly = true)
-    public List<AnswerResponse> getAnswersByQuestion(Long questionId,
-                                                     String email) {
-
+    public List<AnswerResponse> getAnswersByQuestion(Long questionId, String email) {
         Question question = getQuestionById(questionId);
         User currentUser = getUserByEmail(email);
 
@@ -43,7 +43,6 @@ public class AnswerServiceImpl implements AnswerService {
                 .collect(Collectors.toList());
     }
 
-    // ✅ Implementation for fetching the user's specific answers
     @Override
     @Transactional(readOnly = true)
     public List<AnswerResponse> getMyAnswers(String email) {
@@ -54,20 +53,17 @@ public class AnswerServiceImpl implements AnswerService {
                 .collect(Collectors.toList());
     }
 
-    // ── Add answer ──
+    /**
+     * ✅ ELITE SYNC: Intelligence contributions are now allowed regardless of status
+     * so that Tutors can refine answers during the review phase.
+     */
     @Override
     @Transactional
-    public AnswerResponse addAnswer(Long questionId, String email,
-                                   AnswerRequest request) {
-
+    public AnswerResponse addAnswer(Long questionId, String email, AnswerRequest request) {
         Question question = getQuestionById(questionId);
         User user = getUserByEmail(email);
 
-        if (question.getStatus() != Question.Status.APPROVED) {
-            throw AppException.badRequest(
-                    "Answers can only be added to approved questions"
-            );
-        }
+        // SYNC REMOVAL: status != APPROVED check removed for high-speed curation.
 
         Answer answer = Answer.builder()
                 .question(question)
@@ -78,90 +74,47 @@ public class AnswerServiceImpl implements AnswerService {
                 .build();
 
         answerRepository.save(answer);
-
         return mapToAnswerResponse(answer, user);
     }
 
-    // ── Toggle upvote ──
     @Override
     @Transactional
     public AnswerResponse toggleUpvote(Long answerId, String email) {
-
         Answer answer = answerRepository.findById(answerId)
-                .orElseThrow(() ->
-                        AppException.notFound("Answer not found")
-                );
-
+                .orElseThrow(() -> AppException.notFound("Answer not found"));
         User user = getUserByEmail(email);
 
         if (answer.getUpvotedByUserIds().contains(user.getId())) {
-
-            // remove upvote
             answer.getUpvotedByUserIds().remove(user.getId());
             answer.setUpvoteCount(answer.getUpvoteCount() - 1);
-
         } else {
-
-            // add upvote
             answer.getUpvotedByUserIds().add(user.getId());
             answer.setUpvoteCount(answer.getUpvoteCount() + 1);
         }
 
         answerRepository.save(answer);
-
         return mapToAnswerResponse(answer, user);
     }
 
-    // ── Helpers ──
-
     private Question getQuestionById(Long id) {
         return questionRepository.findById(id)
-                .orElseThrow(() ->
-                        AppException.notFound("Question not found")
-                );
+                .orElseThrow(() -> AppException.notFound("Question not found"));
     }
 
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        AppException.notFound("User not found")
-                );
+                .orElseThrow(() -> AppException.notFound("User not found"));
     }
 
-    // ── Mapper (SAFE VERSION 🔥) ──
     private AnswerResponse mapToAnswerResponse(Answer answer, User currentUser) {
-
         return AnswerResponse.builder()
                 .id(answer.getId())
                 .content(answer.getContent())
-
-                // ✅ ADDED: This is what fixes the "View Discussion" link
-                .questionId(
-                        answer.getQuestion() != null 
-                                ? answer.getQuestion().getId() 
-                                : null
-                )
-
-                // ✅ Question title for the "My Answers" view
-                .questionTitle(
-                        answer.getQuestion() != null 
-                                ? answer.getQuestion().getTitle() 
-                                : "Unknown Question"
-                )
-
-                .authorName(
-                        answer.getAuthor() != null
-                                ? answer.getAuthor().getFullName()
-                                : null
-                )
-
+                .questionId(answer.getQuestion() != null ? answer.getQuestion().getId() : null)
+                .questionTitle(answer.getQuestion() != null ? answer.getQuestion().getTitle() : "Unknown")
+                .authorName(answer.getAuthor() != null ? answer.getAuthor().getFullName() : "Anonymous")
                 .upvoteCount(answer.getUpvoteCount())
-
-                .upvotedByCurrentUser(
-                        answer.getUpvotedByUserIds() != null &&
-                        answer.getUpvotedByUserIds().contains(currentUser.getId())
-                )
-
+                .upvotedByCurrentUser(answer.getUpvotedByUserIds() != null && answer.getUpvotedByUserIds().contains(currentUser.getId()))
                 .accepted(answer.isAccepted())
                 .createdAt(answer.getCreatedAt())
                 .build();
