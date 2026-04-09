@@ -14,7 +14,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	//Used During Login - find user by email
 	Optional<User> findByEmail(String email);
 	
-	 // Check if email already registered — used during register
+	// Check if email already registered — used during register
     boolean existsByEmail(String email);
     
     // Check if phone already registered — used during user creation
@@ -23,11 +23,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Admin → user list filtered by role
     List<User> findByRole(User.Role role);
     
-
     // Admin → list only active or deactivated users
     List<User> findByEnabled(boolean enabled);
     
     // Admin → filter by role AND status together
     List<User> findByRoleAndEnabled(User.Role role, boolean enabled);
+
+    // ✅ NEW: Find available agents for the support queue
+    // Looks for specific roles (Admin/Tutor) who are marked 'available' and are not 'inCall'
+    List<User> findByRoleInAndAvailableTrueAndInCallFalseAndEnabledTrue(List<User.Role> roles);
     
 }

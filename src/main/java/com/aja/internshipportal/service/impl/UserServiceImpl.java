@@ -18,9 +18,11 @@ import com.aja.internshipportal.service.*;
 import com.aja.internshipportal.util.AuditActions;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j; // ✅ ADDED
 
 @Service
 @RequiredArgsConstructor
+@Slf4j // ✅ ADDED
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
@@ -55,6 +57,8 @@ public class UserServiceImpl implements UserService {
                 .role(request.getRole())
                 .enabled(true)
                 .firstLogin(true)
+                .available(false) // Default to offline
+                .inCall(false)
                 .build();
 
         userRepository.save(user);
@@ -205,6 +209,41 @@ public class UserServiceImpl implements UserService {
         return mapToUserResponse(user);
     }
 
+    // ✅ NEW: TOGGLE AVAILABILITY
+    @Override
+    @Transactional
+    public UserResponse toggleAvailability(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> AppException.notFound("User not found"));
+        
+        user.setAvailable(!user.isAvailable());
+        userRepository.save(user);
+        
+        log.info("Agent {} changed availability to: {}", user.getEmail(), user.isAvailable());
+        return mapToUserResponse(user);
+    }
+
+    // ✅ NEW: SET IN-CALL STATUS
+    @Override
+    @Transactional
+    public void setInCallStatus(String phone, boolean inCall) {
+        // Numbers from Twilio can have +91, we need to match carefully
+        String cleanedPhone = phone.replaceAll("[^0-9]", "");
+        if (cleanedPhone.length() > 10) {
+            cleanedPhone = cleanedPhone.substring(cleanedPhone.length() - 10);
+        }
+        
+        final String finalPhone = cleanedPhone;
+        userRepository.findAll().stream()
+            .filter(u -> u.getPhone() != null && u.getPhone().contains(finalPhone))
+            .findFirst()
+            .ifPresent(u -> {
+                u.setInCall(inCall);
+                userRepository.save(u);
+                log.info("Agent {} call status updated to: {}", u.getEmail(), inCall);
+            });
+    }
+
     // ── HELPERS ──
 
     private String generateTempPassword() {
@@ -220,6 +259,8 @@ public class UserServiceImpl implements UserService {
                 .role(user.getRole())
                 .enabled(user.isEnabled())
                 .firstLogin(user.isFirstLogin())
+                .available(user.isAvailable()) // ✅ ADDED
+                .inCall(user.isInCall())       // ✅ ADDED
                 .profilePicture(user.getProfilePicture())
                 .interests(user.getInterests()) 
                 .createdAt(user.getCreatedAt())

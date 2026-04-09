@@ -21,6 +21,10 @@ public class UserResponse {
 	
 	// Frontend uses this to redirect to change-password page
 	private boolean firstLogin;
+
+	// ✅ NEW: Support Status Fields
+	private boolean available;
+	private boolean inCall;
 	
 	private String profilePicture;
 

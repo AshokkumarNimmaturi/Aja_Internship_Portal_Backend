@@ -44,6 +44,16 @@ public class User {
     @Builder.Default
     private boolean firstLogin = false;
 
+    // ✅ NEW: Support Agent Availability Status
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean available = false;
+
+    // ✅ NEW: Real-time Call Status
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean inCall = false;
+
     @Column(length = 500)
     private String profilePicture;
 

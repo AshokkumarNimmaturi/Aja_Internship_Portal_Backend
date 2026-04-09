@@ -26,6 +26,14 @@ public interface UserService {
 	// ✅ ADDED: Allow any logged-in user to update their own profile tech interests
 	UserResponse updateMyProfile(String email, UpdateUserRequest request);
 
-	  // Admin → activate user (re-enable access)
-    void activateUser(Long id); // ✅ ADD THIS
+	// Admin → activate user (re-enable access)
+    void activateUser(Long id);
+
+    // ✅ NEW: Support Center Methods
+    
+    // Toggle whether the agent is "Available" to receive calls
+    UserResponse toggleAvailability(String email);
+
+    // Update real-time "Busy" status based on Twilio call events
+    void setInCallStatus(String phone, boolean inCall);
 }

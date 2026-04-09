@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AuthController {
     private final AuthService authService;
-    private final UserService userService; // ✅ ADDED: To handle profile data
+    private final UserService userService;
 
     // POST /api/auth/register - SUBSCRIBER only
     @PostMapping("/register")
@@ -36,19 +36,27 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
-    // ✅ ADDED: GET /api/auth/me — Load logged-in user profile
+    // ✅ GET /api/auth/me — Load logged-in user profile
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getMyProfile(
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(userService.getMyProfile(userDetails.getUsername()));
     }
 
-    // ✅ ADDED: PUT /api/auth/profile — Update user name and tech interests
+    // ✅ PUT /api/auth/profile — Update user name and tech interests
     @PutMapping("/profile")
     public ResponseEntity<UserResponse> updateProfile(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody UpdateUserRequest request) {
         return ResponseEntity.ok(userService.updateMyProfile(userDetails.getUsername(), request));
+    }
+
+    // ✅ NEW: POST /api/auth/toggle-availability
+    // Allows Agents (Admin/Tutor) to Go Online or Go Offline
+    @PostMapping("/toggle-availability")
+    public ResponseEntity<UserResponse> toggleAvailability(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(userService.toggleAvailability(userDetails.getUsername()));
     }
     
     // POST /api/auth/forgot-password
