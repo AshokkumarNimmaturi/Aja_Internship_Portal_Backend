@@ -1,5 +1,3 @@
-// PATH: src/main/java/com/aja/internshipportal/service/impl/AuthServiceImpl.java
-
 package com.aja.internshipportal.service.impl;
 
 import java.time.Instant;
@@ -32,6 +30,9 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final AuditLogService auditLogService;
+    
+    // ✅ ADDED: Inject SmsService for automated notifications
+    private final SmsService smsService;
 
     @Override
     @Transactional
@@ -52,6 +53,13 @@ public class AuthServiceImpl implements AuthService {
         // ✅ INTEGRATION: Automated Welcome Email
         try {
             emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
+        } catch (Exception e) {}
+        
+        // ✅ INTEGRATION: Automated Welcome SMS
+        try {
+            if (user.getPhone() != null && !user.getPhone().isEmpty()) {
+                smsService.sendWelcomeSms(user.getPhone(), user.getFullName());
+            }
         } catch (Exception e) {}
 
         auditLogService.log(user, AuditActions.USER_REGISTERED, "User", user.getId(), "Subscriber registered", null);

@@ -28,7 +28,6 @@ public class SecurityConfig {
     private final UserDetailsServiceImpl userDetailsService;
 
     // ── PUBLIC ROUTES ──
-    // We explicitly list these to ensure /api/auth/me, /api/auth/profile, and /api/auth/change-password are PROTECTED
     private static final String[] PUBLIC_URLS = {
         "/api/auth/login",
         "/api/auth/register",
@@ -41,31 +40,34 @@ public class SecurityConfig {
         "/api/technologies",
         "/swagger-ui/**",
         "/swagger-ui.html",
-        "/v3/api-docs/**"
+        "/v3/api-docs/**",
+        
+        // ✅ UPDATED: Added Twilio TwiML endpoint to public URLs.
+        // This allows Twilio to reach your server without a JWT token.
+        "/api/voice/twiml"
     };
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(Customizer.withDefaults())
-            .csrf(AbstractHttpConfigurer::disable)
+            // CSRF is already disabled here, which is necessary for Twilio's POST requests
+            .csrf(AbstractHttpConfigurer::disable) 
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers(PUBLIC_URLS).permitAll()
                     
                     // Specific role protection mapping
                     .requestMatchers("/api/admin/**").hasRole("ADMIN") 
-                    .requestMatchers("/api/support/**").hasRole("ADMIN") // ✅ Added support permit
+                    .requestMatchers("/api/support/**").hasRole("ADMIN")
                     .requestMatchers("/api/questions/*/review").hasAnyRole("TUTOR", "ADMIN")
                     .requestMatchers("/api/questions").hasAnyRole("EMPLOYEE", "TUTOR", "ADMIN", "SUBSCRIBER")
                     
                     .requestMatchers("/api/payment/**").hasRole("SUBSCRIBER")
                     .requestMatchers("/api/subscriptions/**").hasRole("SUBSCRIBER")
                     
-                    // Everything else (including profile and password) requires a token
+                    // Everything else requires a token
                     .anyRequest().authenticated()
-               
-
             )
 
             .sessionManagement(session -> session

@@ -120,6 +120,14 @@
 			<artifactId>itextpdf</artifactId>
 			<version>5.5.13.3</version>
 		</dependency>
+		
+		<!-- Twilio Java SDK -->
+<dependency>
+    <groupId>com.twilio.sdk</groupId>
+    <artifactId>twilio</artifactId>
+    <version>10.1.0</version>
+</dependency>
+
 
 	</dependencies>
 
