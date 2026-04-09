@@ -19,6 +19,10 @@ public class UpdateUserRequest {
     // Admin can activate/deactivate account
     private Boolean enabled;
 
+    // ✅ ADDED: Automated phone number support
+    @Size(min = 10, max = 15)
+    private String phone;
+
     // ✅ ADDED: Technology interests for profiling
     private List<String> interests;
 }

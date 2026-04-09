@@ -17,9 +17,11 @@ import com.aja.internshipportal.security.JwtUtil;
 import com.aja.internshipportal.service.*;
 import com.aja.internshipportal.util.AuditActions;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j; // ✅ ADDED: For logging
 
 @Service
 @RequiredArgsConstructor
+@Slf4j // ✅ ADDED: For logging
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -31,13 +33,17 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final AuditLogService auditLogService;
     
-    // ✅ ADDED: Inject SmsService for automated notifications
+    // ✅ Inject SmsService for automated notifications
     private final SmsService smsService;
 
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) throw AppException.conflict("Email exists");
+
+        // ✅ DEBUG: Verify phone number is arriving from Frontend
+        log.info("DEBUG: Registration attempt - Name: {}, Email: {}, Phone: {}", 
+                 request.getFullName(), request.getEmail(), request.getPhone());
 
         User user = User.builder()
                 .fullName(request.getFullName())
@@ -53,14 +59,21 @@ public class AuthServiceImpl implements AuthService {
         // ✅ INTEGRATION: Automated Welcome Email
         try {
             emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            log.error("Email failed: {}", e.getMessage());
+        }
         
         // ✅ INTEGRATION: Automated Welcome SMS
         try {
             if (user.getPhone() != null && !user.getPhone().isEmpty()) {
+                log.info("DEBUG: Attempting to send Welcome SMS to {}", user.getPhone());
                 smsService.sendWelcomeSms(user.getPhone(), user.getFullName());
+            } else {
+                log.warn("DEBUG: No phone number provided for user {}, skipping SMS.", user.getEmail());
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            log.error("SMS trigger failed: {}", e.getMessage());
+        }
 
         auditLogService.log(user, AuditActions.USER_REGISTERED, "User", user.getId(), "Subscriber registered", null);
         return buildAuthResponse(user);

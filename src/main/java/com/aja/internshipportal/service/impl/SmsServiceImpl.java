@@ -28,8 +28,29 @@ public class SmsServiceImpl implements SmsService {
         sendSms(phoneNumber, message);
     }
 
-    // ✅ HELPER: Generic method to send SMS via Fast2SMS
+    /**
+     * ✅ ADDED: Helper method to ensure exactly 10 digits are sent to Fast2SMS.
+     * Fast2SMS often fails if you include '+91' or spaces.
+     */
+    private String cleanPhoneNumber(String phoneNumber) {
+        if (phoneNumber == null) return "";
+        
+        // Remove all non-numeric characters (like +, -, spaces)
+        String cleaned = phoneNumber.replaceAll("[^0-9]", "");
+        
+        // If it's a 12-digit number starting with 91 (India), remove the 91
+        if (cleaned.length() == 12 && cleaned.startsWith("91")) {
+            cleaned = cleaned.substring(2);
+        }
+        
+        return cleaned;
+    }
+
+    // ✅ UPDATED: Generic method to send SMS via Fast2SMS with better logging
     private void sendSms(String phoneNumber, String message) {
+        // Clean the number before sending
+        String cleanedNumber = cleanPhoneNumber(phoneNumber);
+        
         try {
             String url = "https://www.fast2sms.com/dev/bulkV2";
             
@@ -37,18 +58,24 @@ public class SmsServiceImpl implements SmsService {
             headers.set("authorization", apiKey);
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            String body = "{\"route\": \"q\", \"message\": \"" + message + "\", \"language\": \"english\", \"numbers\": \"" + phoneNumber + "\"}";
+            // Use the cleaned 10-digit number here
+            String body = "{\"route\": \"q\", \"message\": \"" + message + "\", \"language\": \"english\", \"numbers\": \"" + cleanedNumber + "\"}";
+
+            // ✅ ADDED: Debug log to see exactly what we are sending
+            log.info("DEBUG: Fast2SMS Request -> Numbers: {}, Message: {}", cleanedNumber, message);
 
             HttpEntity<String> entity = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("SMS sent successfully to: {}", phoneNumber);
+                log.info("SMS sent successfully to: {} (Original: {})", cleanedNumber, phoneNumber);
+                // ✅ ADDED: Log the response body from Fast2SMS
+                log.info("DEBUG: Fast2SMS Response -> {}", response.getBody());
             } else {
-                log.error("Failed to send SMS: {}", response.getBody());
+                log.error("Failed to send SMS to {}. Response: {}", cleanedNumber, response.getBody());
             }
         } catch (Exception e) {
-            log.error("Error sending SMS via Fast2SMS: {}", e.getMessage());
+            log.error("Error sending SMS to {} via Fast2SMS: {}", cleanedNumber, e.getMessage());
         }
     }
 }

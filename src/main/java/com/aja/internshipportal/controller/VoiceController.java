@@ -30,7 +30,6 @@ public class VoiceController {
 
     /**
      * Endpoint for frontend to get a JWT token.
-     * This token allows the browser to communicate with Twilio.
      */
     @GetMapping("/token")
     public String getAccessToken(@RequestParam String identity) {
@@ -46,29 +45,29 @@ public class VoiceController {
     }
 
     /**
-     * Endpoint Twilio calls to get TwiML instructions when a call is initiated.
-     * This is the "bridge" that connects the browser to a real phone number.
+     * Endpoint Twilio calls to get TwiML instructions.
+     * Updated to route to Super Admin by default or when requested.
      */
     @PostMapping(value = "/twiml", produces = MediaType.APPLICATION_XML_VALUE)
     @ResponseBody
-    public String getTwiML(@RequestParam String To) {
-        // Clean the number (remove any non-numeric characters except +)
-        String formattedTo = To.replaceAll("[^0-9+]", "");
+    public String getTwiML(@RequestParam(required = false) String To) {
+        // ✅ DEFAULT: Route to Super Admin if To is missing or marked as support
+        String destination = (To == null || To.trim().isEmpty()) ? "+917780131390" : To;
         
-        // ✅ AUTO-FORMAT: If number is 10 digits (India), prepend '+91'
-        // This ensures the call matches your "Verified Caller IDs" exactly.
+        // Clean the number (remove any non-numeric characters except +)
+        String formattedTo = destination.replaceAll("[^0-9+]", "");
+        
+        // ✅ AUTO-FORMAT: Ensure India numbers have +91
         if (formattedTo.length() == 10 && !formattedTo.startsWith("+")) {
             formattedTo = "+91" + formattedTo;
         } else if (!formattedTo.startsWith("+") && formattedTo.length() > 0) {
-            // General case for numbers that have country code but missing the '+'
             formattedTo = "+" + formattedTo;
         }
 
-        System.out.println("DEBUG: Twilio Request Received -> Original: [" + To + "] -> To Dial: [" + formattedTo + "]"); 
+        System.out.println("DEBUG: Voice Call Routing -> Destination: [" + formattedTo + "]"); 
         
         Number number = new Number.Builder(formattedTo).build();
         
-        // CallerId must be either your Twilio number or a verified number
         Dial dial = new Dial.Builder()
                 .callerId(twilioPhoneNumber)
                 .number(number)

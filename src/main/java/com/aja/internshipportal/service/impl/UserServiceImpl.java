@@ -80,7 +80,6 @@ public class UserServiceImpl implements UserService {
     }
 
     // ── GET ALL USERS ──
-    // ✅ ADDED @Transactional: This allows interests to load for the admin view
     @Override
     @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers() {
@@ -110,7 +109,11 @@ public class UserServiceImpl implements UserService {
             user.setEnabled(request.getEnabled());
         }
 
-        // ✅ Allow admin to update interests
+        // ✅ ADDED: Allow admin to update phone number
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone());
+        }
+
         if (request.getInterests() != null) {
             user.setInterests(request.getInterests());
         }
@@ -138,7 +141,11 @@ public class UserServiceImpl implements UserService {
             user.setFullName(request.getFullName());
         }
 
-        // ✅ Save technology interests
+        // ✅ ADDED: Allow user to update their own phone number
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone());
+        }
+
         if (request.getInterests() != null) {
             user.setInterests(request.getInterests());
         }
@@ -190,8 +197,6 @@ public class UserServiceImpl implements UserService {
         );
     }
 
-    // ── GET PROFILE ──
-    // ✅ ADDED @Transactional: This allows interests to load for the profile view
     @Override
     @Transactional(readOnly = true)
     public UserResponse getMyProfile(String email) {
@@ -216,7 +221,7 @@ public class UserServiceImpl implements UserService {
                 .enabled(user.isEnabled())
                 .firstLogin(user.isFirstLogin())
                 .profilePicture(user.getProfilePicture())
-                .interests(user.getInterests()) // ✅ Send interests back to UI
+                .interests(user.getInterests()) 
                 .createdAt(user.getCreatedAt())
                 .build();
     }
