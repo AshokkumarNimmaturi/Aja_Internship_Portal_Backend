@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.aja.internshipportal.entity.User;
@@ -11,26 +13,30 @@ import com.aja.internshipportal.entity.User;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
-	//Used During Login - find user by email
-	Optional<User> findByEmail(String email);
-	
-	// Check if email already registered — used during register
+    Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
-    
-    // Check if phone already registered — used during user creation
     boolean existsByPhone(String phone);
-    
-    // Admin → user list filtered by role
     List<User> findByRole(User.Role role);
-    
-    // Admin → list only active or deactivated users
     List<User> findByEnabled(boolean enabled);
-    
-    // Admin → filter by role AND status together
     List<User> findByRoleAndEnabled(User.Role role, boolean enabled);
 
-    // ✅ NEW: Find available agents for the support queue
-    // Looks for specific roles (Admin/Tutor) who are marked 'available' and are not 'inCall'
-    List<User> findByRoleInAndAvailableTrueAndInCallFalseAndEnabledTrue(List<User.Role> roles);
+    // ✅ Finds agents who are READY for calls (AVAILABLE + NOT BUSY)
+    @Query("SELECT u FROM User u WHERE u.role IN ('ADMIN', 'TUTOR') " +
+           "AND u.status = 'AVAILABLE' " +
+           "AND u.inCall = false " +
+           "AND u.enabled = true")
+    List<User> findAvailableSupportAgents();
+
+    // ✅ Counts any agents who are signed in (AVAILABLE or on BREAK)
+    @Query("SELECT COUNT(u) FROM User u WHERE u.role IN ('ADMIN', 'TUTOR') " +
+           "AND u.status != 'OFFLINE' " +
+           "AND u.enabled = true")
+    long countOnlineAgents();
     
+    // ✅ NEW: Robust phone matching for real-time status updates
+    // Finds a user whose phone number ends with the given 10 digits
+    @Query("SELECT u FROM User u WHERE u.phone LIKE %:phoneSuffix")
+    Optional<User> findByPhoneEndingWith(@Param("phoneSuffix") String phoneSuffix);
+
+    List<User> findByRoleInAndStatusAndInCallFalseAndEnabledTrue(List<User.Role> roles, User.SupportStatus status);
 }

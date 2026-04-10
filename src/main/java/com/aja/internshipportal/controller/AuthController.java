@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.aja.internshipportal.dto.request.*;
 import com.aja.internshipportal.dto.response.*;
+import com.aja.internshipportal.entity.User; // ✅ ADDED
 import com.aja.internshipportal.service.AuthService;
 import com.aja.internshipportal.service.UserService;
 
@@ -51,12 +52,13 @@ public class AuthController {
         return ResponseEntity.ok(userService.updateMyProfile(userDetails.getUsername(), request));
     }
 
-    // ✅ NEW: POST /api/auth/toggle-availability
-    // Allows Agents (Admin/Tutor) to Go Online or Go Offline
-    @PostMapping("/toggle-availability")
-    public ResponseEntity<UserResponse> toggleAvailability(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(userService.toggleAvailability(userDetails.getUsername()));
+    // ✅ UPDATED: /api/auth/support-status
+    // Receives ?status=AVAILABLE, BREAK, or OFFLINE
+    @PostMapping("/support-status")
+    public ResponseEntity<UserResponse> updateSupportStatus(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam User.SupportStatus status) {
+        return ResponseEntity.ok(userService.updateSupportStatus(userDetails.getUsername(), status));
     }
     
     // POST /api/auth/forgot-password

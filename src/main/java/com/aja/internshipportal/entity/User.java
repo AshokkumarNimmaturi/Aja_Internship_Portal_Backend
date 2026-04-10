@@ -44,10 +44,11 @@ public class User {
     @Builder.Default
     private boolean firstLogin = false;
 
-    // ✅ NEW: Support Agent Availability Status
+    // ✅ REPLACED: Professional Support Status (Enum)
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    private boolean available = false;
+    private SupportStatus status = SupportStatus.OFFLINE;
 
     // ✅ NEW: Real-time Call Status
     @Column(nullable = false)
@@ -72,5 +73,12 @@ public class User {
 
     public enum Role {
         ADMIN, TUTOR, EMPLOYEE, SUBSCRIBER
+    }
+
+    // ✅ NEW: Support Status Options
+    public enum SupportStatus {
+        AVAILABLE,  // Online and ready to receive calls
+        BREAK,      // Online but temporarily not receiving calls
+        OFFLINE     // Signed off
     }
 }

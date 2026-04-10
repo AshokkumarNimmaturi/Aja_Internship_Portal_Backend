@@ -5,6 +5,7 @@ import java.util.List;
 import com.aja.internshipportal.dto.request.CreateUserRequest;
 import com.aja.internshipportal.dto.request.UpdateUserRequest;
 import com.aja.internshipportal.dto.response.UserResponse;
+import com.aja.internshipportal.entity.User;
 
 public interface UserService {
 
@@ -29,11 +30,14 @@ public interface UserService {
 	// Admin → activate user (re-enable access)
     void activateUser(Long id);
 
-    // ✅ NEW: Support Center Methods
+    // ✅ UPDATED: Support Center Methods
     
-    // Toggle whether the agent is "Available" to receive calls
-    UserResponse toggleAvailability(String email);
+    // Set the agent's current status (AVAILABLE, BREAK, OFFLINE)
+    UserResponse updateSupportStatus(String email, User.SupportStatus status);
 
     // Update real-time "Busy" status based on Twilio call events
     void setInCallStatus(String phone, boolean inCall);
+    
+    // ✅ UPDATED: Now uses SID for perfect matching
+    void markCallAsAnswered(String agentPhone, String callSid);
 }

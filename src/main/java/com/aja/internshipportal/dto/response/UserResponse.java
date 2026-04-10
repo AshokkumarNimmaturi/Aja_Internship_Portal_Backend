@@ -22,8 +22,8 @@ public class UserResponse {
 	// Frontend uses this to redirect to change-password page
 	private boolean firstLogin;
 
-	// ✅ NEW: Support Status Fields
-	private boolean available;
+	// ✅ UPDATED: Support Status Enum
+	private User.SupportStatus status;
 	private boolean inCall;
 	
 	private String profilePicture;
