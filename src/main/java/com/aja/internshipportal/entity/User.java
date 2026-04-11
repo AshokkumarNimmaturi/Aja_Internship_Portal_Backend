@@ -39,6 +39,12 @@ public class User {
     @Builder.Default
     private boolean enabled = true;
 
+    // ✅ LEGACY COMPATIBILITY: Handles the ghost 'available' column in DB
+    // This stops the "Field 'available' doesn't have a default value" crash.
+    @Column(name = "available", nullable = true) 
+    @Builder.Default
+    private Boolean available = true;
+
     // true on all internal accounts — forces password change on first login
     @Column(nullable = false)
     @Builder.Default
@@ -58,7 +64,6 @@ public class User {
     @Column(length = 500)
     private String profilePicture;
 
-    // ✅ ADDED: Technology interests for profiling
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_interests", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "interest")
@@ -75,7 +80,6 @@ public class User {
         ADMIN, TUTOR, EMPLOYEE, SUBSCRIBER
     }
 
-    // ✅ NEW: Support Status Options
     public enum SupportStatus {
         AVAILABLE,  // Online and ready to receive calls
         BREAK,      // Online but temporarily not receiving calls

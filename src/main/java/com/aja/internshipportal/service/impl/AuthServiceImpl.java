@@ -17,11 +17,11 @@ import com.aja.internshipportal.security.JwtUtil;
 import com.aja.internshipportal.service.*;
 import com.aja.internshipportal.util.AuditActions;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // ✅ ADDED: For logging
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j // ✅ ADDED: For logging
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -32,16 +32,23 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final AuditLogService auditLogService;
-    
-    // ✅ Inject SmsService for automated notifications
     private final SmsService smsService;
 
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) throw AppException.conflict("Email exists");
+        // ✅ 1. Check for Duplicate Email
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw AppException.conflict("Email already exists");
+        }
 
-        // ✅ DEBUG: Verify phone number is arriving from Frontend
+        // ✅ 2. Check for Duplicate Phone (NEW)
+        if (request.getPhone() != null && !request.getPhone().isEmpty()) {
+            if (userRepository.existsByPhone(request.getPhone())) {
+                throw AppException.conflict("Phone number already exists");
+            }
+        }
+
         log.info("DEBUG: Registration attempt - Name: {}, Email: {}, Phone: {}", 
                  request.getFullName(), request.getEmail(), request.getPhone());
 
