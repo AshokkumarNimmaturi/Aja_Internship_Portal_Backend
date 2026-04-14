@@ -44,7 +44,13 @@ public class SecurityConfig {
         
         // ✅ UPDATED: Added Twilio TwiML endpoint to public URLs.
         // This allows Twilio to reach your server without a JWT token.
-        "/api/voice/twiml"
+     // FROM THIS:
+       // "/api/voice/twiml"
+
+        // TO THIS:
+        "/api/voice/**"
+
+        
     };
 
     @Bean

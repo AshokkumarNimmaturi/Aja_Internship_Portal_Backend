@@ -41,16 +41,17 @@ public class User {
 
     // ✅ LEGACY COMPATIBILITY: Handles the ghost 'available' column in DB
     // This stops the "Field 'available' doesn't have a default value" crash.
+    // ✅ FIXED: Standardize legacy column to false
     @Column(name = "available", nullable = true) 
     @Builder.Default
-    private Boolean available = true;
-
+    private Boolean available = false; 
     // true on all internal accounts — forces password change on first login
     @Column(nullable = false)
     @Builder.Default
     private boolean firstLogin = false;
 
     // ✅ REPLACED: Professional Support Status (Enum)
+    // ✅ FIXED: Ensure every user defaults to OFFLINE
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
