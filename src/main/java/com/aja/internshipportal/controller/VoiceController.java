@@ -553,7 +553,7 @@ public class VoiceController {
         }
         if (userRepository.countOnlineAgents() > 0) return enterQueue();
         return new VoiceResponse.Builder().say(new Say.Builder("All specialists are currently offline. Queuing for callback.").build()).enqueue(new Enqueue.Builder("SupportQueue").build()).build().toXml();
-    }
+    } 
 
     private String enterQueue() {
         return new VoiceResponse.Builder().say(new Say.Builder("All specialists are busy. Please stay on the line.").build()).enqueue(new Enqueue.Builder("SupportQueue").build()).build().toXml();
