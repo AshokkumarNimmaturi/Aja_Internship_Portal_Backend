@@ -26,9 +26,9 @@ public class QuestionController {
 
     private final QuestionService questionService;
 
-    // ... (getQuestions, getSamples, getMyQuestions, getQuestionById, getPendingQuestions, submitQuestion remain the same) ...
-
+    // ✅ List all questions with full RBAC & Subscriber technology filtering
     @GetMapping
+    @PreAuthorize("hasAnyRole('EMPLOYEE','TUTOR','ADMIN','SUBSCRIBER')")
     public ResponseEntity<Page<QuestionResponse>> getQuestions(
             @RequestParam(required = false) Long technologyId,
             @RequestParam(required = false) String keyword,
@@ -36,6 +36,14 @@ public class QuestionController {
             @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return ResponseEntity.ok(questionService.getQuestions(technologyId, keyword, pageable));
+    }
+
+    // ✅ NEW: Endpoint for 'Recently Viewed' Questions (Fixes Dashbord 500 Error)
+    @GetMapping("/recent")
+    @PreAuthorize("hasAnyRole('EMPLOYEE','TUTOR','ADMIN','SUBSCRIBER')")
+    public ResponseEntity<List<QuestionResponse>> getRecentQuestions(
+            @RequestParam(defaultValue = "3") int limit) {
+        return ResponseEntity.ok(questionService.getRecentQuestions(limit));
     }
 
     @GetMapping("/samples")
@@ -49,7 +57,9 @@ public class QuestionController {
         return ResponseEntity.ok(questionService.getMyQuestions(userDetails.getUsername()));
     }
 
+    // ✅ View specific question detail (Unlocked for Subscribers)
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('EMPLOYEE','TUTOR','ADMIN','SUBSCRIBER')")
     public ResponseEntity<QuestionResponse> getQuestionById(@PathVariable Long id) {
         return ResponseEntity.ok(questionService.getQuestionById(id));
     }
@@ -81,7 +91,6 @@ public class QuestionController {
         return ResponseEntity.ok(questionService.reviewQuestion(id, userDetails.getUsername(), request));
     }
 
-    // ✅ ADDED: PUT /api/questions/{id} — Update existing question (Author/Tutor/Admin)
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('EMPLOYEE','TUTOR','ADMIN')")
     public ResponseEntity<QuestionResponse> updateQuestion(

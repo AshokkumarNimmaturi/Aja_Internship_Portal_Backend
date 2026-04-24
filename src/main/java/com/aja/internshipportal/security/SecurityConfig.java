@@ -2,6 +2,7 @@ package com.aja.internshipportal.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -27,7 +28,6 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsServiceImpl userDetailsService;
 
-    // ── PUBLIC ROUTES ──
     private static final String[] PUBLIC_URLS = {
         "/api/auth/login",
         "/api/auth/register",
@@ -38,50 +38,42 @@ public class SecurityConfig {
         "/api/packages/**",
         "/api/questions/samples",
         "/api/technologies",
+        "/api/technologies/**",
+        "/api/voice/**",
         "/swagger-ui/**",
         "/swagger-ui.html",
-        "/v3/api-docs/**",
-        
-        // ✅ UPDATED: Added Twilio TwiML endpoint to public URLs.
-        // This allows Twilio to reach your server without a JWT token.
-     // FROM THIS:
-       // "/api/voice/twiml"
-
-        // TO THIS:
-        "/api/voice/**"
-
-        
+        "/v3/api-docs/**"
     };
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(Customizer.withDefaults())
-            // CSRF is already disabled here, which is necessary for Twilio's POST requests
             .csrf(AbstractHttpConfigurer::disable) 
             .authorizeHttpRequests(auth -> auth
-                    .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers(PUBLIC_URLS).permitAll()
                     
-                    // Specific role protection mapping
                     .requestMatchers("/api/admin/**").hasRole("ADMIN") 
                     .requestMatchers("/api/support/**").hasRole("ADMIN")
+                    
+                    // Question Discovery
                     .requestMatchers("/api/questions/*/review").hasAnyRole("TUTOR", "ADMIN")
-                    .requestMatchers("/api/questions").hasAnyRole("EMPLOYEE", "TUTOR", "ADMIN", "SUBSCRIBER")
+                    .requestMatchers("/api/questions/pending").hasAnyRole("TUTOR", "ADMIN")
                     
-                    .requestMatchers("/api/payment/**").hasRole("SUBSCRIBER")
-                    .requestMatchers("/api/subscriptions/**").hasRole("SUBSCRIBER")
+                    // ✅ UPDATED: Added SUBSCRIBER so they can reach the Controller
+                    .requestMatchers("/api/questions/**").hasAnyRole("EMPLOYEE", "TUTOR", "ADMIN", "SUBSCRIBER")
                     
-                    // Everything else requires a token
+                    // Subscriber Features
+                    .requestMatchers("/api/payment/**").hasAnyRole("SUBSCRIBER", "ADMIN")
+                    .requestMatchers("/api/subscriptions/**").hasAnyRole("SUBSCRIBER", "ADMIN")
+                    
                     .anyRequest().authenticated()
             )
-
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-
             .authenticationProvider(authenticationProvider())
-
             .addFilterBefore(
                 jwtAuthFilter,
                 UsernamePasswordAuthenticationFilter.class
