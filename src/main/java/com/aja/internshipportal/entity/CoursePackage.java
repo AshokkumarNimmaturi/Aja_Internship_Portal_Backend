@@ -64,6 +64,10 @@ public class CoursePackage {
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
+    
+    // Legacy price field to satisfy database constraints
+    private BigDecimal price;
+
 
     public enum PackageType {
         SINGLE, BUNDLE

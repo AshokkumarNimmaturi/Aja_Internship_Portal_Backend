@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 @Slf4j
 public class SmsServiceImpl implements SmsService {
@@ -29,7 +32,7 @@ public class SmsServiceImpl implements SmsService {
     }
 
     /**
-     * ✅ ADDED: Helper method to ensure exactly 10 digits are sent to Fast2SMS.
+     * ✅ Helper method to ensure exactly 10 digits are sent to Fast2SMS.
      * Fast2SMS often fails if you include '+91' or spaces.
      */
     private String cleanPhoneNumber(String phoneNumber) {
@@ -46,11 +49,17 @@ public class SmsServiceImpl implements SmsService {
         return cleaned;
     }
 
-    // ✅ UPDATED: Generic method to send SMS via Fast2SMS with better logging
+    // ✅ UPDATED: Generic method to send SMS via Fast2SMS with robust JSON handling
     private void sendSms(String phoneNumber, String message) {
         // Clean the number before sending
         String cleanedNumber = cleanPhoneNumber(phoneNumber);
         
+        // 1. VALIDATION: Catch API Key configuration errors
+        if (apiKey == null || apiKey.isEmpty() || apiKey.contains("${")) {
+            log.error("SMS FAILED: Fast2SMS API Key is MISSING or misconfigured in application.properties.");
+            return;
+        }
+
         try {
             String url = "https://www.fast2sms.com/dev/bulkV2";
             
@@ -58,18 +67,20 @@ public class SmsServiceImpl implements SmsService {
             headers.set("authorization", apiKey);
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            // Use the cleaned 10-digit number here
-            String body = "{\"route\": \"q\", \"message\": \"" + message + "\", \"language\": \"english\", \"numbers\": \"" + cleanedNumber + "\"}";
+            // 2. SAFE PAYLOAD: Use a Map to let Spring handle JSON serialization/escaping
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("route", "q");
+            requestBody.put("message", message);
+            requestBody.put("language", "english");
+            requestBody.put("numbers", cleanedNumber);
 
-            // ✅ ADDED: Debug log to see exactly what we are sending
             log.info("DEBUG: Fast2SMS Request -> Numbers: {}, Message: {}", cleanedNumber, message);
 
-            HttpEntity<String> entity = new HttpEntity<>(body, headers);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
                 log.info("SMS sent successfully to: {} (Original: {})", cleanedNumber, phoneNumber);
-                // ✅ ADDED: Log the response body from Fast2SMS
                 log.info("DEBUG: Fast2SMS Response -> {}", response.getBody());
             } else {
                 log.error("Failed to send SMS to {}. Response: {}", cleanedNumber, response.getBody());

@@ -33,9 +33,11 @@ public class UserServiceImpl implements UserService {
     private final EmailService emailService;
     private final PdfService pdfService;
     private final AuditLogService auditLogService;
+    private final SmsService smsService; // ✅ ADDED: SMS Service dependency
 
     // ── CREATE USER ──
     @Override
+    @Transactional
     public UserResponse createuser(CreateUserRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw AppException.conflict("Email already registered with our database");
@@ -65,8 +67,21 @@ public class UserServiceImpl implements UserService {
         auditLogService.log(user, AuditActions.USER_CREATED, "User", user.getId(),
                 "Internal user created: " + user.getEmail() + " role: " + user.getRole(), null);
 
+        // ✅ INTEGRATION: SEND EMAIL WITH PDF CREDENTIALS
         byte[] pdf = pdfService.generateCredentialsPdf(user, tempPassword);
         emailService.sendCredentialsEmail(user.getEmail(), user.getFullName(), tempPassword, pdf);
+
+        // ✅ INTEGRATION: SEND WELCOME SMS (FIXED)
+        try {
+            if (user.getPhone() != null && !user.getPhone().isEmpty()) {
+                log.info("DEBUG: Triggering Welcome SMS for new internal user: {}", user.getPhone());
+                smsService.sendWelcomeSms(user.getPhone(), user.getFullName());
+            } else {
+                log.warn("DEBUG: No phone number provided for user {}, skipping SMS.", user.getEmail());
+            }
+        } catch (Exception e) {
+            log.error("SMS failed for internal user {}: {}", user.getEmail(), e.getMessage());
+        }
 
         return mapToUserResponse(user);
     }

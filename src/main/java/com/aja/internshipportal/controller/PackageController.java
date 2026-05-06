@@ -1,13 +1,12 @@
 package com.aja.internshipportal.controller;
 
+import com.aja.internshipportal.dto.request.PackageRequest;
 import com.aja.internshipportal.dto.response.PackageResponse;
 import com.aja.internshipportal.service.PackageService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -31,5 +30,12 @@ public class PackageController {
     public ResponseEntity<PackageResponse> getPackageById(
             @PathVariable Long id) {
         return ResponseEntity.ok(packageService.getPackageById(id));
+    }
+
+    // POST /api/packages — Create a new package
+    @PostMapping
+    public ResponseEntity<PackageResponse> createPackage(@RequestBody PackageRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(packageService.createPackage(request));
     }
 }

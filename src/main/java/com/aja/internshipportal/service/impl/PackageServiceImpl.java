@@ -1,9 +1,11 @@
 package com.aja.internshipportal.service.impl;
 
+import com.aja.internshipportal.dto.request.PackageRequest;
 import com.aja.internshipportal.dto.response.PackageResponse;
 import com.aja.internshipportal.entity.CoursePackage;
 import com.aja.internshipportal.exception.AppException;
 import com.aja.internshipportal.repository.PackageRepository;
+// import com.aja.internshipportal.repository.TechnologyRepository;
 import com.aja.internshipportal.service.PackageService;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import java.util.stream.Collectors;
 public class PackageServiceImpl implements PackageService {
 
     private final PackageRepository packageRepository;
+    // private final TechnologyRepository technologyRepository; // Uncomment if needed
 
     // ── List all active packages ──
     @Override
@@ -40,6 +43,32 @@ public class PackageServiceImpl implements PackageService {
                 );
 
         return mapToPackageResponse(coursePackage);
+    }
+
+    // ── Create Package ──
+    @Override
+    @Transactional
+    public PackageResponse createPackage(PackageRequest request) {
+        CoursePackage coursePackage = new CoursePackage();
+        coursePackage.setName(request.getName());
+        coursePackage.setDescription(request.getDescription());
+        coursePackage.setPackageType(request.getPackageType());
+        coursePackage.setBasicPrice(request.getBasicPrice());
+        coursePackage.setPrice(request.getBasicPrice()); // ADD THIS LINE TO FIX 
+        coursePackage.setStandardPrice(request.getStandardPrice());
+        coursePackage.setPremiumPrice(request.getPremiumPrice());
+        coursePackage.setBundlePrice(request.getBundlePrice());
+        coursePackage.setActive(true);
+
+        // Note: If you map technologies to packages, you'll need to fetch and set it here
+        // if (request.getTechnologyName() != null) {
+        //     Technology tech = technologyRepository.findByName(request.getTechnologyName())
+        //            .orElseThrow(() -> AppException.notFound("Tech not found"));
+        //     coursePackage.setTechnology(tech);
+        // }
+
+        CoursePackage savedPackage = packageRepository.save(coursePackage);
+        return mapToPackageResponse(savedPackage);
     }
 
     // ── helper ──

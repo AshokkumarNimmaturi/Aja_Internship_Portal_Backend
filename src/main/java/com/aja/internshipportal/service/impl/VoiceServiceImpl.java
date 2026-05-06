@@ -138,7 +138,6 @@ public class VoiceServiceImpl implements VoiceService {
     // --- Private Logic ---
 
     private String startSupportHunt(int index, String fromNumber, String baseUrl) {
-        // Safe parameter access
         String dialStatus = "unknown";
         try {
             jakarta.servlet.http.HttpServletRequest req = ((org.springframework.web.context.request.ServletRequestAttributes) 
@@ -148,8 +147,11 @@ public class VoiceServiceImpl implements VoiceService {
 
         log.info("[VOICE] Hunt Phase {}. Prev Status: {}", index, dialStatus);
 
+        // Uses proper Twilio Builder for Hangup
         if (dialStatus != null && (dialStatus.equalsIgnoreCase("completed") || dialStatus.equalsIgnoreCase("answered"))) {
-            return new VoiceResponse.Builder().hangup(new Hangup.Builder().build()).build().toXml();
+            return new VoiceResponse.Builder()
+                    .hangup(new Hangup.Builder().build())
+                    .build().toXml();
         }
 
         List<User> readyAgents = userRepository.findAvailableSupportAgents();
@@ -197,6 +199,7 @@ public class VoiceServiceImpl implements VoiceService {
     }
 
     private String emergencyResponse(String message) {
+        // Uses proper Twilio Builder for Hangup
         return new VoiceResponse.Builder()
                 .say(new Say.Builder("Fatal error: " + message).build())
                 .hangup(new Hangup.Builder().build())
@@ -246,7 +249,8 @@ public class VoiceServiceImpl implements VoiceService {
 
     private void checkQueueAndBridge(String agentPhone, String baseUrl) {
         try {
-            Twilio.init(accountSid, apiKeySecret);
+            // Using correct init signature for API Keys
+            Twilio.init(apiKeySid, apiKeySecret, accountSid);
             ResourceSet<Member> members = Member.reader("SupportQueue").read();
             if (members.iterator().hasNext()) {
                 String subSid = members.iterator().next().getCallSid();

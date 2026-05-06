@@ -1,5 +1,6 @@
 package com.aja.internshipportal.service;
 
+import com.aja.internshipportal.dto.request.PackageRequest;
 import com.aja.internshipportal.dto.response.PackageResponse;
 
 import java.util.List;
@@ -11,4 +12,7 @@ public interface PackageService {
 
     // Public — get single package by id
     PackageResponse getPackageById(Long id);
+
+    // Admin — Create new package
+    PackageResponse createPackage(PackageRequest request);
 }
