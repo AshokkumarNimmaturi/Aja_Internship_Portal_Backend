@@ -118,6 +118,10 @@ public class UserServiceImpl implements UserService {
         if (request.getFullName() != null) user.setFullName(request.getFullName());
         if (request.getPhone() != null) user.setPhone(request.getPhone());
         if (request.getInterests() != null) user.setInterests(request.getInterests());
+        
+        // ✅ NEW: Save the Base64 Profile Picture
+        if (request.getProfilePicture() != null) user.setProfilePicture(request.getProfilePicture());
+
         userRepository.save(user);
 
         auditLogService.log(user, AuditActions.USER_UPDATED, "User", user.getId(),

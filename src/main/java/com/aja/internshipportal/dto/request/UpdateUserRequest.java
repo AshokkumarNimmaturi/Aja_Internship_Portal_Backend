@@ -22,6 +22,9 @@ public class UpdateUserRequest {
     // ✅ ADDED: Automated phone number support
     @Size(min = 10, max = 15)
     private String phone;
+    
+    private String profilePicture;
+
 
     // ✅ ADDED: Technology interests for profiling
     private List<String> interests;

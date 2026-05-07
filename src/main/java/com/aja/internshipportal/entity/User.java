@@ -62,8 +62,10 @@ public class User {
     @Builder.Default
     private boolean inCall = false;
 
-    @Column(length = 500)
+    // ✅ UPGRADED: LONGTEXT can store massive Base64 image strings!
+    @Column(columnDefinition = "LONGTEXT")
     private String profilePicture;
+
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_interests", joinColumns = @JoinColumn(name = "user_id"))
