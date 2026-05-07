@@ -9,11 +9,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.aja.internshipportal.entity.CoursePackage;
 import com.aja.internshipportal.entity.Subscription;
 import com.aja.internshipportal.entity.User;
 
 @Repository
-public interface SuscriptionRepository extends JpaRepository<Subscription, Long> {
+public interface SubscriptionRepository extends JpaRepository<Subscription, Long> {
 	// My subscriptions page — all subscriptions for logged-in user
     List<Subscription> findByUser(User user);
     
@@ -28,7 +29,7 @@ public interface SuscriptionRepository extends JpaRepository<Subscription, Long>
         """)
     Optional<Subscription> findActiveSubscription(
             @Param("user") User user,
-            @Param("pkg") Package pkg,
+            @Param("pkg") CoursePackage coursePackage,
             @Param("today") LocalDate today
     );
     

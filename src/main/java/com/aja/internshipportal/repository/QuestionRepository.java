@@ -67,4 +67,9 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     
     // Count questions per technology — for admin dashboard
     long countByTechnologyAndStatus(Technology technology, Question.Status status);
+    
+ // ✅ Add this specific line to QuestionRepository.java
+    Page<Question> findByTechnologyInAndStatus(List<Technology> technologies, Question.Status status, Pageable pageable);
+
 }
+

@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -38,13 +39,38 @@ public class User {
     @Builder.Default
     private boolean enabled = true;
 
+    // ✅ LEGACY COMPATIBILITY: Handles the ghost 'available' column in DB
+    // This stops the "Field 'available' doesn't have a default value" crash.
+    // ✅ FIXED: Standardize legacy column to false
+    @Column(name = "available", nullable = true) 
+    @Builder.Default
+    private Boolean available = false; 
     // true on all internal accounts — forces password change on first login
     @Column(nullable = false)
     @Builder.Default
     private boolean firstLogin = false;
 
-    @Column(length = 500)
+    // ✅ REPLACED: Professional Support Status (Enum)
+    // ✅ FIXED: Ensure every user defaults to OFFLINE
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private SupportStatus status = SupportStatus.OFFLINE;
+
+    // ✅ NEW: Real-time Call Status
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean inCall = false;
+
+    // ✅ UPGRADED: LONGTEXT can store massive Base64 image strings!
+    @Column(columnDefinition = "LONGTEXT")
     private String profilePicture;
+
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_interests", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "interest")
+    private List<String> interests;
 
     @CreationTimestamp
     @Column(updatable = false)
@@ -55,5 +81,11 @@ public class User {
 
     public enum Role {
         ADMIN, TUTOR, EMPLOYEE, SUBSCRIBER
+    }
+
+    public enum SupportStatus {
+        AVAILABLE,  // Online and ready to receive calls
+        BREAK,      // Online but temporarily not receiving calls
+        OFFLINE     // Signed off
     }
 }

@@ -1,9 +1,8 @@
 package com.aja.internshipportal.dto.response;
 
 import java.time.LocalDateTime;
-
+import java.util.List;
 import com.aja.internshipportal.entity.User;
-
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -20,9 +19,17 @@ public class UserResponse {
 	private User.Role role;
 	private boolean enabled;
 	
-	//Frontend uses this to redirect to change-password page
+	// Frontend uses this to redirect to change-password page
 	private boolean firstLogin;
+
+	// ✅ UPDATED: Support Status Enum
+	private User.SupportStatus status;
+	private boolean inCall;
 	
 	private String profilePicture;
+
+	// ✅ ADDED: Display saved interests in UI
+	private List<String> interests;
+
 	private LocalDateTime createdAt;
 }
